@@ -241,14 +241,12 @@ public class CPU
 							
 							case 1:			// ADD HL, rp[p]
 							{
-								flags("NE HC CA", 0, rp[HL].get(), rp[p.get()].get());
+								flags("HC CA", 0, rp[HL].get(), rp[p.get()].get());
 								
 								rp[2].add(rp[p.get()].get());
 								
 								r[H].set(BitUtil.subByte(rp[HL].get(), 1));
 								r[L].set(BitUtil.subByte(rp[HL].get(), 0));
-								
-								// TODO: do flag stuffs
 								
 								t += 8;
 								m += 2;
@@ -277,13 +275,26 @@ public class CPU
 		{
 			if (flags.contains("Z"))
 			{
-				boolean zero = (((fnum + snum) % 256) == 0);
+				boolean zero = (fnum + snum) % 256 == 0;
 				
-				cc[NZ].set(zero ? 1 : 0);
-				cc[Z].set(zero ? 0 : 1);
+				cc[Z].set(zero ? 1 : 0);
+				cc[NZ].set(zero ? 0 : 1);
 			}
 			
-			//if (flags.contains(" TODO: rest of flags
+			if (flags.contains("CA"))
+			{
+				boolean carry = fnum + snum > 255;
+				
+				cc[NCA].set(carry ? 0 : 1);
+				cc[CA].set(carry ? 1 : 0);
+			}
+			
+			if (flags.contains("HC"))
+			{
+				boolean hcarry = fnum + snum > 15;
+				
+				hc = hcarry ? 1 : 0;
+			}
 		}
 	}
 }
