@@ -1,0 +1,6 @@
+[submodule "unsigned"]
+	path = unsigned
+	url = https://github.com/LittlestCube/unsigned
+[submodule "bitutil"]
+	path = bitutil
+	url = https://github.com/LittlestCube/bitutil
