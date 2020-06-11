@@ -14,7 +14,7 @@ public class CPU
 	UnsignedByte q;		// y modulo 2 (i.e. bit 3)
 	
 	UnsignedByte d;		// displacement byte (8-bit signed byte)
-	UnsignedByte n;	// 8-bit immediate operand (unsigned byte)
+	UnsignedByte n;		// 8-bit immediate operand (unsigned byte)
 	UnsignedShort nn;	// 16-bit immediate operand (unsigned byte)
 	
 	UnsignedShort sp;
