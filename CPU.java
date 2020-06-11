@@ -127,6 +127,12 @@ public class CPU
 		n.set(memory[pc.get() + 1]);
 		nn.set((memory[pc.get() + 2].get() << 8) | (memory[pc.get() + 1].get()));
 		
+		rp[BC].craftShort(r[B].b, r[C].b);
+		rp[DE].craftShort(r[D].b, r[E].b);
+		rp[HL].craftShort(r[H].b, r[L].b);
+		
+		r[R_HL].set(memory[rp[HL].get()]);
+		
 		t = 0;
 		m = 0;
 		
@@ -279,6 +285,34 @@ public class CPU
 								r[A].set(memory[rp[(p.get() == 3) ? p.get() - 1 : p.get()].get()]);
 								
 								rp[HL].add((p.get() < 2) ? 0 : ((p.get() == 2) ? 1 : -1));
+								
+								t += 8;
+								m += 2;
+								pc.add(1);
+								break;
+							}
+						}
+						
+						break;
+					}
+					
+					case 3:
+					{
+						switch (q.get())
+						{
+							case 0:			// INC rp[p]
+							{
+								rp[p.get()].add(1);
+								
+								t += 8;
+								m += 2;
+								pc.add(1);
+								break;
+							}
+							
+							case 1:			// DEC rp[p]
+							{
+								rp[p.get()].sub(1);
 								
 								t += 8;
 								m += 2;
