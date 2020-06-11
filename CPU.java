@@ -257,6 +257,38 @@ public class CPU
 						
 						break;
 					}
+					
+					case 2:
+					{
+						switch (q.get())
+						{
+							case 0:			// LD (rp[p]), A (this is insanely hard to read if I ever come back here; if p < 2 then memory[rp[p]] gets loaded into. otherwise, we have to load into either memory[HL++] or memory[HL--] (p == 2 or p == 3))
+							{
+								memory[rp[(p.get() == 3) ? p.get() - 1 : p.get()].get()].set(r[A]);
+								
+								rp[HL].add((p.get() < 2) ? 0 : ((p.get() == 2) ? 1 : -1));
+								
+								t += 8;
+								m += 2;
+								pc.add(1);
+								break;
+							}
+							
+							case 1:			// LD A, (rp[p]) (same thing, but other way around)
+							{
+								r[A].set(memory[rp[(p.get() == 3) ? p.get() - 1 : p.get()].get()]);
+								
+								rp[HL].add((p.get() < 2) ? 0 : ((p.get() == 2) ? 1 : -1));
+								
+								t += 8;
+								m += 2;
+								pc.add(1);
+								break;
+							}
+						}
+						
+						break;
+					}
 				}
 				
 				break;
