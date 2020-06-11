@@ -1,6 +1,8 @@
 import littlecube.unsigned.*;
 import littlecube.bitutil.*;
 
+import java.util.Random;
+
 public class CPU
 {
 	UnsignedByte opcode;
@@ -31,6 +33,28 @@ public class CPU
 	UnsignedByte memory[];
 	
 	UnsignedByte r[];
+	
+	final int A = 7;
+	final int B = 0;
+	final int C = 1;
+	final int D = 2;
+	final int E = 3;
+	final int H = 4;
+	final int L = 5;
+	final int R_HL = 6;
+	
+	final int BC = 0;
+	final int DE = 1;
+	final int HL = 2;
+	
+	final int NZ = 0;
+	final int Z = 1;
+	final int NCA = 2;
+	final int CA = 3;
+	
+	int ne;
+	int hc;
+	
 	UnsignedByte cc[];
 	UnsignedShort rp[];
 	
@@ -72,7 +96,9 @@ public class CPU
 		
 		for (int i = 0; i < memory.length; i++)
 		{
-			memory[i] = new UnsignedByte();
+			Random rand = new Random();
+			
+			memory[i] = new UnsignedByte(rand.nextInt());
 		}
 		
 		for (int i = 0; i < r.length; i++)
@@ -103,6 +129,9 @@ public class CPU
 		
 		t = 0;
 		m = 0;
+		
+		ne = 0;
+		hc = 0;
 		
 		x.setBit(BitUtil.bit(opcode.get(), 7), 1);
 		x.setBit(BitUtil.bit(opcode.get(), 6), 0);
@@ -188,6 +217,42 @@ public class CPU
 									m += 2;
 									pc.set(pc.get() + 1);
 								}
+								
+								break;
+							}
+						}
+						
+						break;
+					}
+					
+					case 1:
+					{
+						switch (q.get())
+						{
+							case 0:			// LD rp[p], nn
+							{
+								rp[p.get()].set(nn.get());
+								
+								t += 12;
+								m += 3;
+								pc.add(3);
+								break;
+							}
+							
+							case 1:			// ADD HL, rp[p]
+							{
+								flags("NE HC CA", 0, rp[HL].get(), rp[p.get()].get());
+								
+								rp[2].add(rp[p.get()].get());
+								
+								r[H].set(BitUtil.subByte(rp[HL].get(), 1));
+								r[L].set(BitUtil.subByte(rp[HL].get(), 0));
+								
+								// TODO: do flag stuffs
+								
+								t += 8;
+								m += 2;
+								pc.add(1);
 								break;
 							}
 						}
@@ -202,5 +267,23 @@ public class CPU
 		
 		clockt += t;
 		clockm += m;
+	}
+	
+	void flags(String flags, int setNe, int fnum, int snum)
+	{
+		ne = setNe;
+		
+		if (ne == 0)
+		{
+			if (flags.contains("Z"))
+			{
+				boolean zero = (((fnum + snum) % 256) == 0);
+				
+				cc[NZ].set(zero ? 1 : 0);
+				cc[Z].set(zero ? 0 : 1);
+			}
+			
+			//if (flags.contains(" TODO: rest of flags
+		}
 	}
 }

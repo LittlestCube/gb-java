@@ -6,6 +6,9 @@ public class GB
 	{
 		cpu = new CPU();
 		
-		cpu.cycle();
+		while (true)
+		{
+			cpu.cycle();
+		}
 	}
 }
