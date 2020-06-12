@@ -247,7 +247,7 @@ public class CPU
 							
 							case 1:			// ADD HL, rp[p]
 							{
-								flags("HC CA", 0, rp[HL].get(), rp[p.get()].get());
+								flags("HC CA", true, 0, rp[HL].get(), rp[p.get()].get());
 								
 								rp[2].add(rp[p.get()].get());
 								
@@ -323,6 +323,76 @@ public class CPU
 						
 						break;
 					}
+					
+					case 4:					// INC r[y]
+					{
+						flags("Z HC", true, 0, r[y.get()].get(), 1);
+						
+						if (y.get() == R_HL)
+						{
+							memory[rp[HL].get()].add(1);
+							
+							t += 12;
+							m += 3;
+						}
+						
+						else
+						{
+							r[y.get()].add(1);
+							
+							t += 4;
+							m += 1;
+						}
+						
+						pc.add(1);
+						break;
+					}
+					
+					case 5:					// DEC r[y]
+					{
+						flags("Z HC", true, 1, r[y.get()].get(), 1);
+						
+						if (y.get() == R_HL)
+						{
+							memory[rp[HL].get()].sub(1);
+							
+							t += 12;
+							t += 3;
+						}
+						
+						else
+						{
+							r[y.get()].sub(1);
+							
+							t += 4;
+							m += 1;
+						}
+						
+						pc.add(1);
+						break;
+					}
+					
+					case 6:					// LD r[y], n
+					{
+						if (y.get() == R_HL)
+						{
+							memory[rp[HL].get()].set(n);
+							
+							t += 12;
+							t += 3;
+						}
+						
+						else
+						{
+							r[y.get()].set(n);
+							
+							t += 8;
+							m += 2;
+						}
+						
+						pc.add(2);
+						break;
+					}
 				}
 				
 				break;
@@ -333,9 +403,12 @@ public class CPU
 		clockm += m;
 	}
 	
-	void flags(String flags, int setNe, int fnum, int snum)
+	void flags(String flags, boolean setNe, int newNe, int fnum, int snum)
 	{
-		ne = setNe;
+		if (setNe)
+		{
+			ne = newNe;
+		}
 		
 		if (ne == 0)
 		{
@@ -351,13 +424,39 @@ public class CPU
 			{
 				boolean carry = fnum + snum > 255;
 				
-				cc[NCA].set(carry ? 0 : 1);
 				cc[CA].set(carry ? 1 : 0);
+				cc[NCA].set(carry ? 0 : 1);
 			}
 			
 			if (flags.contains("HC"))
 			{
 				boolean hcarry = fnum + snum > 15;
+				
+				hc = hcarry ? 1 : 0;
+			}
+		}
+		
+		else if (ne == 1)
+		{
+			if (flags.contains("Z"))
+			{
+				boolean zero = fnum - snum == 0;
+				
+				cc[Z].set(zero ? 1 : 0);
+				cc[NZ].set(zero ? 0 : 1);
+			}
+			
+			if (flags.contains("CA"))
+			{
+				boolean carry = fnum - snum < 0;
+				
+				cc[CA].set(carry ? 1 : 0);
+				cc[NCA].set(carry ? 0 : 1);
+			}
+			
+			if (flags.contains("HC"))
+			{
+				boolean hcarry = snum > 15;
 				
 				hc = hcarry ? 1 : 0;
 			}
