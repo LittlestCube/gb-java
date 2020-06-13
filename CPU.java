@@ -247,7 +247,7 @@ public class CPU
 							
 							case 1:			// ADD HL, rp[p]
 							{
-								flags("HC CA", true, 0, rp[HL].get(), rp[p.get()].get());
+								flags("HC CA", 0, rp[HL].get(), rp[p.get()].get());
 								
 								rp[2].add(rp[p.get()].get());
 								
@@ -326,7 +326,7 @@ public class CPU
 					
 					case 4:					// INC r[y]
 					{
-						flags("Z HC", true, 0, r[y.get()].get(), 1);
+						flags("Z HC", 0, r[y.get()].get(), 1);
 						
 						if (y.get() == R_HL)
 						{
@@ -350,7 +350,7 @@ public class CPU
 					
 					case 5:					// DEC r[y]
 					{
-						flags("Z HC", true, 1, r[y.get()].get(), 1);
+						flags("Z HC", 1, r[y.get()].get(), 1);
 						
 						if (y.get() == R_HL)
 						{
@@ -403,14 +403,14 @@ public class CPU
 		clockm += m;
 	}
 	
-	void flags(String flags, boolean setNe, int newNe, int fnum, int snum)
+	void flags(String flags, int newNe, int fnum, int snum)
 	{
-		if (setNe)
+		if (newNe != -1)
 		{
 			ne = newNe;
 		}
 		
-		if (ne == 0)
+		if (newNe == 0)
 		{
 			if (flags.contains("Z"))
 			{
@@ -436,7 +436,7 @@ public class CPU
 			}
 		}
 		
-		else if (ne == 1)
+		else if (newNe == 1)
 		{
 			if (flags.contains("Z"))
 			{
