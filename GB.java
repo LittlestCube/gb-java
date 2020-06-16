@@ -1,3 +1,6 @@
+import littlecube.unsigned.*;
+import littlecube.bitutil.*;
+
 public class GB
 {
 	static CPU cpu;
