@@ -533,6 +533,24 @@ public class CPU
 				
 				break;
 			}
+			
+			case 1:
+			{
+				if (z.get() == 6 && y.get() == 6)		// HALT
+				{
+					
+				}
+				
+				else									// LD r[y], r[z]
+				{
+					r[y.get()].set(r[z.get()]);
+				}
+				
+				t += 4;
+				m += 1;
+				pc.add(1);
+				break;
+			}
 		}
 		
 		clockt += t;
