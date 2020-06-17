@@ -9,6 +9,8 @@ public class CPU
 	UnsignedByte arg1;
 	UnsignedByte arg2;
 	
+	UnsignedByte ime;
+	
 	UnsignedByte x;		// the opcode's 1st octal digit (i.e. bits 7-6)
 	UnsignedByte y;		// the opcode's 2nd octal digit (i.e. bits 5-3)
 	UnsignedByte z;		// the opcode's 3rd octal digit (i.e. bits 2-0)
@@ -53,6 +55,9 @@ public class CPU
 	final int CA = 3;
 	final int NE = 4;
 	final int HC = 5;
+	
+	final int IE = 0xFFFF;
+	final int IF = 0xFF0F;
 	
 	UnsignedByte cc[];
 	UnsignedShort rp[];
