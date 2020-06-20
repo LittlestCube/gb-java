@@ -32,7 +32,13 @@ public class CPU
 	
 	UnsignedShort pc;
 	
+	boolean halt;
+	int haltbug;
+	
 	UnsignedByte memory[];
+	
+	final int IE = 0xFFFF;
+	final int IF = 0xFF0F;
 	
 	UnsignedByte r[];
 	
@@ -49,6 +55,8 @@ public class CPU
 	final int DE = 1;
 	final int HL = 2;
 	
+	UnsignedByte cc[];
+	
 	final int NZ = 0;
 	final int Z = 1;
 	final int NCA = 2;
@@ -56,11 +64,9 @@ public class CPU
 	final int NE = 4;
 	final int HC = 5;
 	
-	final int IE = 0xFFFF;
-	final int IF = 0xFF0F;
-	
-	UnsignedByte cc[];
 	UnsignedShort rp[];
+	
+	UnsignedShort stack[];
 	
 	String alu[];
 	String rot[];
@@ -94,9 +100,14 @@ public class CPU
 		
 		memory = new UnsignedByte[0x10000];
 		
+		halt = false;
+		haltbug = -1;
+		
 		r = new UnsignedByte[8];
 		cc = new UnsignedByte[6];
 		rp = new UnsignedShort[3];
+		
+		stack = new UnsignedShort[0x10000];
 		
 		for (int i = 0; i < memory.length; i++)
 		{
@@ -120,12 +131,32 @@ public class CPU
 			rp[i] = new UnsignedShort();
 		}
 		
+		for (int i = 0; i < stack.length; i++)
+		{
+			stack[i] = new UnsignedShort();
+		}
+		
 		alu = new String[] { "ADD A", "ADC A", "SUB", "SBC A", "AND", "XOR", "OR", "CP" };
 		rot = new String[] { "RLC", "RRC", "RL", "RR", "SLA", "SRA", "SWAP", "SRL" };
 	}
 	
 	public void cycle()
 	{
+		if (ime.get() == 1)
+		{
+			
+		}
+		
+		if (halt)
+		{
+			return;
+		}
+		
+		if (memory[pc.get() - 1].get() == 0xFB)
+		{
+			ime.set(1);
+		}
+		
 		opcode.set(memory[pc.get()]);
 		d.set(memory[pc.get() + 1]);
 		n.set(memory[pc.get() + 1]);
@@ -543,7 +574,10 @@ public class CPU
 			{
 				if (z.get() == 6 && y.get() == 6)		// HALT
 				{
-					
+					if (ime.get() == 1)
+					{
+						halt = true;
+					}
 				}
 				
 				else									// LD r[y], r[z]
@@ -551,8 +585,6 @@ public class CPU
 					r[y.get()].set(r[z.get()]);
 				}
 				
-				t += 4;
-				m += 1;
 				pc.add(1);
 				break;
 			}
@@ -560,6 +592,12 @@ public class CPU
 		
 		clockt += t;
 		clockm += m;
+		
+		if (haltbug != -1)
+		{
+			pc.set(haltbug);
+			haltbug = -1;
+		}
 	}
 	
 	void flags(String flags, int newNe, int fnum, int snum)
