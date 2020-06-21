@@ -163,7 +163,6 @@ public class CPU
 						
 						pc.set(0x40 + (0x8 * i));			// JMP to range 0x0040-0x0060 (if interrupt bit 0 `JP 0x0040`, if interrupt bit 1 `JP 0x0048`, etc.)
 						
-						memory[IE].setBit(i, 0);
 						memory[IF].setBit(i, 0);
 						
 						ime = false;
