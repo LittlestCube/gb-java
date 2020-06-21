@@ -6,10 +6,8 @@ import java.util.Random;
 public class CPU
 {
 	UnsignedByte opcode;
-	UnsignedByte arg1;
-	UnsignedByte arg2;
 	
-	UnsignedByte ime;
+	boolean ime;
 	
 	UnsignedByte x;		// the opcode's 1st octal digit (i.e. bits 7-6)
 	UnsignedByte y;		// the opcode's 2nd octal digit (i.e. bits 5-3)
@@ -80,6 +78,8 @@ public class CPU
 	{
 		opcode = new UnsignedByte();
 		
+		ime = false;
+		
 		sp = new UnsignedShort();
 		af = new UnsignedShort();
 		
@@ -116,6 +116,14 @@ public class CPU
 			memory[i] = new UnsignedByte(rand.nextInt());
 		}
 		
+		memory[IE].setBit(5, 1);
+		memory[IE].setBit(6, 1);
+		memory[IE].setBit(7, 1);
+		
+		memory[IF].setBit(5, 1);
+		memory[IF].setBit(6, 1);
+		memory[IF].setBit(7, 1);
+		
 		for (int i = 0; i < r.length; i++)
 		{
 			r[i] = new UnsignedByte();
@@ -142,19 +150,47 @@ public class CPU
 	
 	public void cycle()
 	{
-		if (ime.get() == 1)
+		if (ime)
 		{
+			if (memory[IE].get() != 0xE0 && memory[IF].get() != 0xE0)
+			{
+				for (int i = 0; i < 5; i++)
+				{
+					if (memory[IE].getBit(i) == 1 && memory[IF].getBit(i) == 1)
+					{
+						stack[sp.get()].set(pc);
+						sp.add(1);
+						
+						pc.set(0x40 + (0x8 * i));			// JMP to range 0x0040-0x0060 (if interrupt bit 0 `JP 0x0040`, if interrupt bit 1 `JP 0x0048`, etc.)
+						
+						memory[IF].setBit(i, 0);
+						
+						ime = false;
+						
+						t += 20;
+						m += 5;
+					}
+				}
+			}
 			
+			if (memory[IE].get() == 0xE0 && memory[IF].get() == 0xE0)
+			{
+				halt = false;
+				
+				t += 4;
+				m += 1;
+			}
 		}
 		
 		if (halt)
 		{
+			ime = true;
 			return;
 		}
 		
 		if (memory[pc.get() - 1].get() == 0xFB)
 		{
-			ime.set(1);
+			ime = true;
 		}
 		
 		opcode.set(memory[pc.get()]);
@@ -303,7 +339,7 @@ public class CPU
 					{
 						switch (q.get())
 						{
-							case 0:			// LD (rp[p]), A (this is insanely hard to read if I ever come back here; if p < 2 then memory[rp[p]] gets loaded into. otherwise, we have to load into either memory[HL++] or memory[HL--] (p == 2 or p == 3))
+							case 0:			// LD (rp[p]), A (this is insanely hard to read if I ever come back here; if p < 2 then memory[rp[p]] gets loaded into. otherwise, we have to load into either memory[rp[HL++]] or memory[rp[HL--]] (p == 2 or p == 3))
 							{
 								memory[rp[(p.get() == 3) ? p.get() - 1 : p.get()].get()].set(r[A]);
 								
@@ -574,9 +610,14 @@ public class CPU
 			{
 				if (z.get() == 6 && y.get() == 6)		// HALT
 				{
-					if (ime.get() == 1)
+					if (ime)
 					{
 						halt = true;
+					}
+					
+					else
+					{
+						
 					}
 				}
 				
@@ -585,6 +626,8 @@ public class CPU
 					r[y.get()].set(r[z.get()]);
 				}
 				
+				t += 4;
+				m += 1;
 				pc.add(1);
 				break;
 			}
