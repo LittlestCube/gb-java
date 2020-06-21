@@ -78,7 +78,7 @@ public class CPU
 	{
 		opcode = new UnsignedByte();
 		
-		ime = true;
+		ime = false;
 		
 		sp = new UnsignedShort();
 		af = new UnsignedShort();
@@ -167,6 +167,9 @@ public class CPU
 						memory[IF].setBit(i, 0);
 						
 						ime = false;
+						
+						t += 20;
+						m += 5;
 					}
 				}
 			}
@@ -174,6 +177,9 @@ public class CPU
 			if (memory[IE].get() == 0xE0 && memory[IF].get() == 0xE0)
 			{
 				halt = false;
+				
+				t += 4;
+				m += 1;
 			}
 		}
 		
@@ -621,6 +627,8 @@ public class CPU
 					r[y.get()].set(r[z.get()]);
 				}
 				
+				t += 4;
+				m += 1;
 				pc.add(1);
 				break;
 			}
