@@ -19,9 +19,6 @@ public class CPU
 	UnsignedByte n;		// 8-bit immediate operand (unsigned byte)
 	UnsignedShort nn;	// 16-bit immediate operand (unsigned byte)
 	
-	UnsignedShort sp;
-	UnsignedShort af;
-	
 	int t;
 	int m;
 	
@@ -31,7 +28,10 @@ public class CPU
 	UnsignedShort pc;
 	
 	boolean halt;
-	int haltbug;
+	boolean haltbug;
+	int pcForHaltBug;
+	
+	boolean ei;
 	
 	UnsignedByte memory[];
 	
@@ -48,10 +48,14 @@ public class CPU
 	final int H = 4;
 	final int L = 5;
 	final int R_HL = 6;
+	final int F = 8;
 	
 	final int BC = 0;
 	final int DE = 1;
 	final int HL = 2;
+	
+	final int SP = 3;
+	final int AF = 3;
 	
 	UnsignedByte cc[];
 	
@@ -63,6 +67,7 @@ public class CPU
 	final int HC = 5;
 	
 	UnsignedShort rp[];
+	UnsignedShort rp2[];
 	
 	UnsignedShort stack[];
 	
@@ -79,9 +84,6 @@ public class CPU
 		opcode = new UnsignedByte();
 		
 		ime = false;
-		
-		sp = new UnsignedShort();
-		af = new UnsignedShort();
 		
 		clockt = 0;
 		clockm = 0;
@@ -101,11 +103,15 @@ public class CPU
 		memory = new UnsignedByte[0x10000];
 		
 		halt = false;
-		haltbug = -1;
+		haltbug = false;
+		pcForHaltBug = -2;
 		
-		r = new UnsignedByte[8];
+		ei = false;
+		
+		r = new UnsignedByte[9];
 		cc = new UnsignedByte[6];
-		rp = new UnsignedShort[3];
+		rp = new UnsignedShort[4];
+		rp2 = new UnsignedShort[4];
 		
 		stack = new UnsignedShort[0x10000];
 		
@@ -139,6 +145,11 @@ public class CPU
 			rp[i] = new UnsignedShort();
 		}
 		
+		for (int i = 0; i < rp2.length; i++)
+		{
+			rp2[i] = new UnsignedShort();
+		}
+		
 		for (int i = 0; i < stack.length; i++)
 		{
 			stack[i] = new UnsignedShort();
@@ -150,6 +161,14 @@ public class CPU
 	
 	public void cycle()
 	{
+		if (memory[IE].get() != 0xE0 && memory[IF].get() != 0xE0 && halt)
+		{
+			halt = false;
+			
+			t += 4;
+			m += 1;
+		}
+		
 		if (ime)
 		{
 			if (memory[IE].get() != 0xE0 && memory[IF].get() != 0xE0)
@@ -158,8 +177,8 @@ public class CPU
 				{
 					if (memory[IE].getBit(i) == 1 && memory[IF].getBit(i) == 1)
 					{
-						stack[sp.get()].set(pc);
-						sp.add(1);
+						stack[rp[SP].get()].set(pc);
+						rp[SP].add(1);
 						
 						pc.set(0x40 + (0x8 * i));			// JMP to range 0x0040-0x0060 (if interrupt bit 0 `JP 0x0040`, if interrupt bit 1 `JP 0x0048`, etc.)
 						
@@ -172,35 +191,54 @@ public class CPU
 					}
 				}
 			}
-			
-			if (memory[IE].get() == 0xE0 && memory[IF].get() == 0xE0)
-			{
-				halt = false;
-				
-				t += 4;
-				m += 1;
-			}
 		}
 		
 		if (halt)
 		{
-			ime = true;
 			return;
 		}
 		
-		if (memory[pc.get() - 1].get() == 0xFB)
+		if (ei)
 		{
 			ime = true;
+			ei = false;
 		}
 		
 		opcode.set(memory[pc.get()]);
-		d.set(memory[pc.get() + 1]);
-		n.set(memory[pc.get() + 1]);
-		nn.set((memory[pc.get() + 2].get() << 8) | (memory[pc.get() + 1].get()));
+		
+		if (haltbug)
+		{
+			d.set(memory[pc.get()]);
+			n.set(memory[pc.get()]);
+			nn.craftShort(memory[pc.get() + 1].b, n.b);
+			haltbug = false;
+			pcForHaltBug = pc.get();
+		}
+		
+		else if (pcForHaltBug == pc.get() - 1)
+		{
+			opcode.set(memory[pc.get() - 1]);
+			pcForHaltBug = -2;
+		}
+		
+		else
+		{
+			d.set(memory[pc.get() + 1]);
+			n.set(memory[pc.get() + 1]);
+			nn.craftShort(memory[pc.get() + 2].b, memory[pc.get() + 1].b);
+			pcForHaltBug = -2;
+		}
+		
+		r[F].set(BitUtil.craftByte(cc[Z].get(), cc[NE].get(), cc[HC].get(), cc[C].get(), 0, 0, 0, 0));
 		
 		rp[BC].craftShort(r[B].b, r[C].b);
 		rp[DE].craftShort(r[D].b, r[E].b);
 		rp[HL].craftShort(r[H].b, r[L].b);
+		
+		rp2[BC].craftShort(r[B].b, r[C].b);
+		rp2[DE].craftShort(r[D].b, r[E].b);
+		rp2[HL].craftShort(r[H].b, r[L].b);
+		rp2[AF].craftShort(r[A].b, r[F].b);
 		
 		r[R_HL].set(memory[rp[HL].get()]);
 		
@@ -246,8 +284,8 @@ public class CPU
 							
 							case 1:			// LD (nn), SP
 							{
-								memory[nn.get()].set(BitUtil.subByte(sp.get(), 0));
-								memory[nn.get() + 1].set(BitUtil.subByte(sp.get(), 1));
+								memory[nn.get()].set(BitUtil.subByte(rp[SP].get(), 0));
+								memory[nn.get() + 1].set(BitUtil.subByte(rp[SP].get(), 1));
 								
 								t += 20;
 								m += 5;
@@ -339,9 +377,9 @@ public class CPU
 					{
 						switch (q.get())
 						{
-							case 0:			// LD (rp[p]), A (this is insanely hard to read if I ever come back here; if p < 2 then memory[rp[p]] gets loaded into. otherwise, we have to load into either memory[rp[HL++]] or memory[rp[HL--]] (p == 2 or p == 3))
+							case 0:			// LD (rp[p]), A (this is insanely hard to read if I ever come back here; if p < 2 then memory[rp[p]] gets loaded into. otherwise, we have to load into either memory[rp[HL++]] (p == 2) or memory[rp[HL--]] (p == 3))
 							{
-								memory[rp[(p.get() == 3) ? p.get() - 1 : p.get()].get()].set(r[A]);
+								memory[rp[(p.get() == 3) ? HL : p.get()].get()].set(r[A]);
 								
 								rp[HL].add((p.get() < 2) ? 0 : ((p.get() == 2) ? 1 : -1));
 								
@@ -617,7 +655,15 @@ public class CPU
 					
 					else
 					{
+						if (memory[IE].get() == 0xE0 || memory[IF].get() == 0xE0)
+						{
+							halt = true;
+						}
 						
+						else
+						{
+							haltbug = true;
+						}
 					}
 				}
 				
@@ -636,11 +682,7 @@ public class CPU
 		clockt += t;
 		clockm += m;
 		
-		if (haltbug != -1)
-		{
-			pc.set(haltbug);
-			haltbug = -1;
-		}
+		memory[rp[HL].get()].set(r[R_HL]);
 	}
 	
 	void flags(String flags, int newNe, int fnum, int snum)
