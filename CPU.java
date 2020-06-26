@@ -701,6 +701,95 @@ public class CPU
 				pc.add(1);
 				break;
 			}
+			
+			case 3:
+			{
+				switch (z.get())
+				{
+					case 0:
+					{
+						switch (y.get())
+						{
+							case 0:
+							
+							case 1:
+							
+							case 2:
+							
+							case 3:						// RET cc[y]
+							{
+								if (cc[y.get()].get() == 0)
+								{
+									t += 8;
+									m += 2;
+									pc.add(1);
+									break;
+								}
+								
+								stack[rp[SP].get()].set(0);
+								rp[SP].sub(1);
+								pc.set(stack[rp[SP].get()]);
+								
+								t += 20;
+								m += 5;
+								break;
+							}
+							
+							case 4:						// LD (0xFF00 + n), A
+							{
+								memory[0xFF00 + n.get()].set(r[A]);
+								
+								t += 12;
+								m += 3;
+								pc.add(2);
+								break;
+							}
+							
+							case 5:						// ADD SP, d
+							{
+								int prevSP = rp[SP].get();
+								rp[SP].add(d.b);
+								
+								setZ(0);
+								flags("HC C", 0, prevSP, d.b);
+								
+								t += 16;
+								m += 4;
+								pc.add(2);
+								break;
+							}
+							
+							case 6:						// LD A, (0xFF00 + n)
+							{
+								r[A].set(memory[0xFF00 + n.get()]);
+								
+								t += 12;
+								m += 3;
+								pc.add(2);
+								break;
+							}
+							
+							case 7:						// LD HL, SP + d
+							{
+								rp[HL].set(rp[SP].get() + d.b);
+								r[R_HL].set(memory[rp[HL].get()]);
+								
+								setZ(0);
+								flags("HC C", 0, rp[SP].get(), d.b);
+								
+								t += 12;
+								m += 3;
+								pc.add(2);
+								break;
+							}
+						}
+						
+						break;
+					}
+				}
+				
+				break;
+			}
 		}
 		
 		clockt += t;
