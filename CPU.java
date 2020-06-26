@@ -793,12 +793,71 @@ public class CPU
 						{
 							case 0:						// POP rp2[p]
 							{
-								rp2[p.get()].set(stack[rp[SP].get()]);
+								rp2[p.get()].set(pop());
 								
+								if (p.get() == AF)
+								{
+									r[F].set(rp2[AF].getByte(0));
+									
+									setZ(r[F].getBit(7));
+									cc[NE].set(r[F].getBit(6));
+									cc[HC].set(r[F].getBit(5));
+									setCA(r[F].getBit(4));
+								}
 								
 								t += 12;
 								m += 3;
 								pc.add(1);
+								break;
+							}
+							
+							case 1:
+							{
+								switch (p.get())
+								{
+									case 0:				// RET
+									{
+										ret();
+										
+										t += 16;
+										m += 4;
+										pc.add(1);
+										break;
+									}
+									
+									case 1:				// RETI
+									{
+										ei = true;
+										
+										ret();
+										
+										t += 16;
+										m += 4;
+										pc.add(1);
+										break;
+									}
+									
+									case 2:				// JP HL
+									{
+										pc.set(rp[HL]);
+										
+										t += 4;
+										m += 1;
+										pc.add(1);
+										break;
+									}
+									
+									case 3:				// LD SP, HL
+									{
+										rp[SP].set(rp[HL]);
+										
+										t += 8;
+										m += 2;
+										pc.add(1);
+										break;
+									}
+								}
+								
 								break;
 							}
 						}
@@ -815,6 +874,26 @@ public class CPU
 		clockm += m;
 		
 		memory[rp[HL].get()].set(r[R_HL]);
+	}
+	
+	void ret()
+	{
+		rp[SP].sub(1);
+		
+		pc.set(stack[rp[SP].get()]);
+		
+		stack[rp[SP].get()].set(0);
+	}
+	
+	short pop()
+	{
+		rp[SP].sub(1);
+		
+		short stackVal = stack[rp[SP].get()].s;
+		
+		stack[rp[SP].get()].set(0);
+		
+		return stackVal;
 	}
 	
 	void alu(int index, int operand)
