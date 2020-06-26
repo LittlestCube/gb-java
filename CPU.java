@@ -50,13 +50,6 @@ public class CPU
 	final int R_HL = 6;
 	final int F = 8;
 	
-	final int BC = 0;
-	final int DE = 1;
-	final int HL = 2;
-	
-	final int SP = 3;
-	final int AF = 3;
-	
 	UnsignedByte cc[];
 	
 	final int NZ = 0;
@@ -66,8 +59,23 @@ public class CPU
 	final int NE = 4;
 	final int HC = 5;
 	
+	// for use with the flags() method
+	final int AND = 2;
+	final int OR = 3;
+	final int XOR = 4;
+	final int CP = 5;
+	
 	UnsignedShort rp[];
+	
+	final int BC = 0;
+	final int DE = 1;
+	final int HL = 2;
+	
+	final int SP = 3;
+	
 	UnsignedShort rp2[];
+	
+	final int AF = 3;
 	
 	UnsignedShort stack[];
 	
@@ -274,7 +282,7 @@ public class CPU
 					{
 						switch (y.get())
 						{
-							case 0:			// NOP
+							case 0:						// NOP
 							{
 								t += 4;
 								m += 1;
@@ -282,7 +290,7 @@ public class CPU
 								break;
 							}
 							
-							case 1:			// LD (nn), SP
+							case 1:						// LD (nn), SP
 							{
 								memory[nn.get()].set(BitUtil.subByte(rp[SP].get(), 0));
 								memory[nn.get() + 1].set(BitUtil.subByte(rp[SP].get(), 1));
@@ -293,7 +301,7 @@ public class CPU
 								break;
 							}
 							
-							case 2:			// STOP
+							case 2:						// STOP
 							{
 								while (true)
 								{
@@ -308,7 +316,7 @@ public class CPU
 								break;
 							}
 							
-							case 3:			// JR d
+							case 3:						// JR d
 							{
 								pc.set((pc.get() + 1) + d.b);
 								
@@ -317,7 +325,7 @@ public class CPU
 								break;
 							}
 							
-							default:		// JR cc[y - 4], d
+							default:					// JR cc[y - 4], d
 							{
 								if (cc[y.get() - 4].get() == 1)
 								{
@@ -344,7 +352,7 @@ public class CPU
 					{
 						switch (q.get())
 						{
-							case 0:			// LD rp[p], nn
+							case 0:						// LD rp[p], nn
 							{
 								rp[p.get()].set(nn.get());
 								
@@ -354,7 +362,7 @@ public class CPU
 								break;
 							}
 							
-							case 1:			// ADD HL, rp[p]
+							case 1:						// ADD HL, rp[p]
 							{
 								flags("HC CA", 0, rp[HL].get(), rp[p.get()].get());
 								
@@ -377,8 +385,8 @@ public class CPU
 					{
 						switch (q.get())
 						{
-							case 0:			// LD (rp[p]), A (this is insanely hard to read if I ever come back here; if p < 2 then memory[rp[p]] gets loaded into. otherwise, we have to load into either memory[rp[HL++]] (p == 2) or memory[rp[HL--]] (p == 3))
-							{
+							case 0:						// LD (rp[p]), A
+							{							// (this is insanely hard to read if I ever come back here; if p < 2 then memory[rp[p]] gets loaded into. otherwise, we have to load into either memory[rp[HL++]] (p == 2) or memory[rp[HL--]] (p == 3))
 								memory[rp[(p.get() == 3) ? HL : p.get()].get()].set(r[A]);
 								
 								rp[HL].add((p.get() < 2) ? 0 : ((p.get() == 2) ? 1 : -1));
@@ -389,7 +397,7 @@ public class CPU
 								break;
 							}
 							
-							case 1:			// LD A, (rp[p]) (same thing, but other way around)
+							case 1:						// LD A, (rp[p]) (same thing, but other way around)
 							{
 								r[A].set(memory[rp[(p.get() == 3) ? p.get() - 1 : p.get()].get()]);
 								
@@ -409,7 +417,7 @@ public class CPU
 					{
 						switch (q.get())
 						{
-							case 0:			// INC rp[p]
+							case 0:						// INC rp[p]
 							{
 								rp[p.get()].add(1);
 								
@@ -419,7 +427,7 @@ public class CPU
 								break;
 							}
 							
-							case 1:			// DEC rp[p]
+							case 1:						// DEC rp[p]
 							{
 								rp[p.get()].sub(1);
 								
@@ -433,7 +441,7 @@ public class CPU
 						break;
 					}
 					
-					case 4:					// INC r[y]
+					case 4:								// INC r[y]
 					{
 						flags("Z HC", 0, r[y.get()].get(), 1);
 						
@@ -457,7 +465,7 @@ public class CPU
 						break;
 					}
 					
-					case 5:					// DEC r[y]
+					case 5:								// DEC r[y]
 					{
 						flags("Z HC", 1, r[y.get()].get(), 1);
 						
@@ -481,7 +489,7 @@ public class CPU
 						break;
 					}
 					
-					case 6:					// LD r[y], n
+					case 6:								// LD r[y], n
 					{
 						if (y.get() == R_HL)
 						{
@@ -507,7 +515,7 @@ public class CPU
 					{
 						switch (y.get())
 						{
-							case 0:			// RLCA
+							case 0:						// RLCA
 							{
 								setCA(r[A].getBit(7));
 								
@@ -520,7 +528,7 @@ public class CPU
 								break;
 							}
 							
-							case 1:			// RRCA
+							case 1:						// RRCA
 							{
 								setCA(r[A].getBit(0));
 								
@@ -533,7 +541,7 @@ public class CPU
 								break;
 							}
 							
-							case 2:			// RLA
+							case 2:						// RLA
 							{
 								int prevbit7 = r[A].getBit(7);
 								
@@ -548,7 +556,7 @@ public class CPU
 								break;
 							}
 							
-							case 3:			// RRA
+							case 3:						// RRA
 							{
 								int prevbit0 = r[A].getBit(0);
 								
@@ -563,7 +571,7 @@ public class CPU
 								break;
 							}
 							
-							case 4:			// DAA
+							case 4:						// DAA
 							{
 								if (cc[NE].get() == 0)
 								{
@@ -601,7 +609,7 @@ public class CPU
 								break;
 							}
 							
-							case 5:			// CPL
+							case 5:						// CPL
 							{
 								r[A].comp();
 								
@@ -614,7 +622,7 @@ public class CPU
 								break;
 							}
 							
-							case 6:			// SCF
+							case 6:						// SCF
 							{
 								cc[NE].set(0);
 								cc[HC].set(0);
@@ -626,7 +634,7 @@ public class CPU
 								break;
 							}
 							
-							case 7:			// CCF
+							case 7:						// CCF
 							{
 								cc[NE].set(0);
 								cc[HC].set(0);
@@ -677,6 +685,22 @@ public class CPU
 				pc.add(1);
 				break;
 			}
+			
+			case 2:
+			{
+				alu(y.get(), r[z.get()].get());
+				
+				if (z.get() == R_HL)
+				{
+					t += 4;
+					m += 1;
+				}
+				
+				t += 4;
+				m += 1;
+				pc.add(1);
+				break;
+			}
 		}
 		
 		clockt += t;
@@ -685,58 +709,193 @@ public class CPU
 		memory[rp[HL].get()].set(r[R_HL]);
 	}
 	
-	void flags(String flags, int newNe, int fnum, int snum)
+	void alu(int index, int operand)
 	{
-		if (newNe == 0)
-		{
-			if (flags.contains("Z"))
-			{
-				boolean zero = (fnum + snum) % 256 == 0;
-				
-				cc[Z].set(zero ? 1 : 0);
-				cc[NZ].set(zero ? 0 : 1);
-			}
-			
-			if (flags.contains("CA"))
-			{
-				boolean carry = fnum + snum > 255;
-				
-				cc[CA].set(carry ? 1 : 0);
-				cc[NCA].set(carry ? 0 : 1);
-			}
-			
-			if (flags.contains("HC"))
-			{
-				boolean hcarry = (fnum & 0x0F) + (snum & 0x0F) > 0x0F;
-				
-				cc[HC].set(hcarry ? 1 : 0);
-			}
-		}
+		int prevA = r[A].get();
 		
-		else if (newNe == 1)
+		switch (index)
 		{
-			if (flags.contains("Z"))
+			case 0:										// ADD A
 			{
-				boolean zero = fnum - snum == 0;
+				r[A].add(operand);
+				flags("Z CA HC", 0, prevA, operand);
 				
-				cc[Z].set(zero ? 1 : 0);
-				cc[NZ].set(zero ? 0 : 1);
+				break;
 			}
 			
-			if (flags.contains("CA"))
+			case 1:										// ADC A
 			{
-				boolean carry = fnum - snum < 0;
+				r[A].add(operand + cc[C].get());
+				flags("Z CA HC", 0, prevA, operand + cc[C].get());
 				
-				setCA(carry ? 1 : 0);
+				break;
 			}
 			
-			if (flags.contains("HC"))
+			case 2:										// SUB A
 			{
-				boolean hcarry = (fnum & 0x0F) + (snum & 0x0F) > 0x0F;
+				r[A].sub(operand);
+				flags("Z CA HC", 1, prevA, operand);
 				
-				cc[HC].set(hcarry ? 1 : 0);
+				break;
+			}
+			
+			case 3:										// SBC A
+			{
+				r[A].sub(operand + cc[C].get());
+				flags("Z CA HC", 1, prevA, operand + cc[C].get());
+				
+				break;
+			}
+			
+			case 4:										// AND A
+			{
+				r[A].and(operand);
+				flags("Z CA HC", 2, prevA, operand);
+				
+				break;
+			}
+			
+			case 5:										// OR A
+			{
+				r[A].or(operand);
+				flags("Z CA HC", 3, prevA, operand);
+				
+				break;
+			}
+			
+			case 6:										// XOR A
+			{
+				r[A].xor(operand);
+				flags("Z CA HC", 4, prevA, operand);
+				
+				break;
+			}
+			
+			case 7:										// CP A
+			{
+				flags("Z CA HC", 5, prevA, operand);
+				
+				break;
 			}
 		}
+	}
+	
+	void flags(String flags, int operation, int fnum, int snum)
+	{
+		switch (operation)
+		{
+			case 0:										// ADD flags
+				cc[NE].set(0);
+				
+				if (flags.contains("Z"))
+				{
+					boolean zero = (fnum + snum) % 256 == 0;
+					
+					setZ(zero ? 1 : 0);
+				}
+				
+				if (flags.contains("CA"))
+				{
+					boolean carry = fnum + snum > 255;
+					
+					setCA(carry ? 1 : 0);
+				}
+				
+				if (flags.contains("HC"))
+				{
+					boolean hcarry = (fnum & 0x0F) + (snum & 0x0F) > 0x0F;
+					
+					cc[HC].set(hcarry ? 1 : 0);
+				}
+				
+				break;
+			
+			case 5:										// CP flags (same as SUB flags)
+			
+			case 1:										// SUB flags
+			{
+				cc[NE].set(1);
+				
+				if (flags.contains("Z"))
+				{
+					boolean zero = fnum - snum == 0;
+					
+					setZ(zero ? 1 : 0);
+				}
+				
+				if (flags.contains("CA"))
+				{
+					boolean carry = snum < fnum;
+					
+					setCA(carry ? 1 : 0);
+				}
+				
+				if (flags.contains("HC"))
+				{
+					boolean hcarry = (snum & 0x0F) > (fnum & 0x0F);
+					
+					cc[HC].set(hcarry ? 1 : 0);
+				}
+				
+				break;
+			}
+			
+			case 2:										// AND flags
+			{
+				cc[NE].set(0);
+				
+				if (flags.contains("Z"))
+				{
+					boolean zero = (fnum & snum) == 0;
+					
+					setZ(zero ? 1 : 0);
+				}
+				
+				if (flags.contains("CA"))
+				{
+					setCA(0);
+				}
+				
+				if (flags.contains("HC"))
+				{
+					cc[HC].set(1);
+				}
+				
+				break;
+			}
+			
+			case 3:										// OR flags (same as XOR flags)
+			
+			case 4:										// XOR flags
+			{
+				cc[NE].set(0);
+				
+				if (flags.contains("Z"))
+				{
+					boolean zero = (fnum & snum) == 0;
+					
+					setZ(zero ? 1 : 0);
+				}
+				
+				if (flags.contains("CA"))
+				{
+					setCA(0);
+				}
+				
+				if (flags.contains("HC"))
+				{
+					cc[HC].set(0);
+				}
+				
+				break;
+			}
+		}
+	}
+	
+	void setZ(int value)
+	{
+		cc[Z].set(value);
+		cc[NZ].set(value ^ 1);
 	}
 	
 	void setCA(int value)
