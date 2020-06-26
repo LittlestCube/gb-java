@@ -726,9 +726,9 @@ public class CPU
 									break;
 								}
 								
-								stack[rp[SP].get()].set(0);
 								rp[SP].sub(1);
 								pc.set(stack[rp[SP].get()]);
+								stack[rp[SP].get()].set(0);
 								
 								t += 20;
 								m += 5;
@@ -780,6 +780,25 @@ public class CPU
 								t += 12;
 								m += 3;
 								pc.add(2);
+								break;
+							}
+						}
+						
+						break;
+					}
+					
+					case 1:
+					{
+						switch (q.get())
+						{
+							case 0:						// POP rp2[p]
+							{
+								rp2[p.get()].set(stack[rp[SP].get()]);
+								
+								
+								t += 12;
+								m += 3;
+								pc.add(1);
 								break;
 							}
 						}
