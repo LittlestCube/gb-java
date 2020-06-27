@@ -726,9 +726,7 @@ public class CPU
 									break;
 								}
 								
-								rp[SP].sub(1);
-								pc.set(stack[rp[SP].get()]);
-								stack[rp[SP].get()].set(0);
+								ret();
 								
 								t += 20;
 								m += 5;
@@ -821,7 +819,6 @@ public class CPU
 										
 										t += 16;
 										m += 4;
-										pc.add(1);
 										break;
 									}
 									
@@ -833,7 +830,6 @@ public class CPU
 										
 										t += 16;
 										m += 4;
-										pc.add(1);
 										break;
 									}
 									
@@ -843,7 +839,6 @@ public class CPU
 										
 										t += 4;
 										m += 1;
-										pc.add(1);
 										break;
 									}
 									
@@ -858,6 +853,77 @@ public class CPU
 									}
 								}
 								
+								break;
+							}
+						}
+						
+						break;
+					}
+					
+					case 2:
+					{
+						switch (y.get())
+						{
+							case 0:
+							
+							case 1:
+							
+							case 2:
+							
+							case 3:						// JP cc[y], nn
+							{
+								if (cc[y.get()].get() == 0)
+								{
+									t += 12;
+									m += 3;
+									pc.add(3);
+									break;
+								}
+								
+								pc.set(nn.get());
+								
+								t += 16;
+								m += 4;
+								break;
+							}
+							
+							case 4:						// LD (0xFF00 + C), A
+							{
+								memory[0xFF00 + r[C].get()].set(r[A]);
+								
+								t += 8;
+								m += 2;
+								pc.add(1);
+								break;
+							}
+							
+							case 5:						// LD (nn), A
+							{
+								memory[nn.get()].set(r[A]);
+								
+								t += 16;
+								m += 4;
+								pc.add(3);
+								break;
+							}
+							
+							case 6:						// LD A, (0xFF00 + C)
+							{
+								r[A].set(memory[0xFF00 + r[C].get()]);
+								
+								t += 8;
+								m += 2;
+								pc.add(1);
+								break;
+							}
+							
+							case 7:						// LD A, (nn)
+							{
+								r[A].set(memory[nn.get()]);
+								
+								t += 8;
+								m += 2;
+								pc.add(3);
 								break;
 							}
 						}
