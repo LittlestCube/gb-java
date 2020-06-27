@@ -930,6 +930,50 @@ public class CPU
 						
 						break;
 					}
+					
+					case 3:
+					{
+						switch (y.get())
+						{
+							case 0:						// JP nn
+							{
+								pc.set(nn.get());
+								
+								t += 16;
+								m += 4;
+								break;
+							}
+							
+							case 1:						// CB-prefixed
+							{
+								// TODO
+								
+								break;
+							}
+							
+							case 6:						// DI
+							{
+								ime = false;
+								
+								t += 4;
+								m += 1;
+								pc.add(1);
+								break;
+							}
+							
+							case 7:						// EI
+							{
+								ei = true;
+								
+								t += 4;
+								m += 1;
+								pc.add(1);
+								break;
+							}
+						}
+						
+						break;
+					}
 				}
 				
 				break;
