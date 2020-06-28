@@ -1006,6 +1006,39 @@ public class CPU
 						
 						break;
 					}
+					
+					case 5:
+					{
+						switch (q.get())
+						{
+							case 0:						// PUSH rp2[p]
+							{
+								push(rp2[p.get()].get());
+								
+								t += 16;
+								m += 4;
+								pc.add(1);
+								break;
+							}
+							
+							case 1:
+							{
+								if (p.get() == 0)		// CALL nn
+								{
+									pc.add(3);
+									
+									call(nn.get());
+									
+									t += 24;
+									m += 6;
+								}
+								
+								break;
+							}
+						}
+						
+						break;
+					}
 				}
 				
 				break;
@@ -1014,6 +1047,11 @@ public class CPU
 		
 		clockt += t;
 		clockm += m;
+		
+		if (t == 0)
+		{
+			System.out.println("E: Unrecognized opcode...");
+		}
 		
 		memory[rp[HL].get()].set(r[R_HL]);
 	}
