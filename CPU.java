@@ -256,21 +256,7 @@ public class CPU
 		cc[NE].set(0);
 		cc[HC].set(0);
 		
-		x.setBit(1, opcode.getBit(7));
-		x.setBit(0, opcode.getBit(6));
-		
-		y.setBit(2, opcode.getBit(5));
-		y.setBit(1, opcode.getBit(4));
-		y.setBit(0, opcode.getBit(3));
-		
-		z.setBit(2, opcode.getBit(2));
-		z.setBit(1, opcode.getBit(1));
-		z.setBit(0, opcode.getBit(0));
-		
-		p.setBit(1, opcode.getBit(5));
-		p.setBit(0, opcode.getBit(4));
-		
-		q.setBit(0, opcode.getBit(3));
+		splitOpcode(opcode);
 		
 		switch (x.get())
 		{
@@ -932,9 +918,78 @@ public class CPU
 								break;
 							}
 							
-							case 1:						// CB-prefixed
+							case 1:									// CB-prefixed
 							{
-								// TODO
+								opcode.set(memory[pc.get() + 1]);
+								splitOpcode(opcode);
+								
+								switch (x.get())
+								{
+									case 0:				// rot[y] r[z]
+									{
+										rot(y.get(), z.get());
+										
+										if (z.get() == R_HL)
+										{
+											t += 8;
+											m += 2;
+										}
+										
+										t += 8;
+										m += 2;
+										pc.add(2);
+										break;
+									}
+									
+									case 1:				// BIT y, r[z]
+									{
+										flags("Z", 0, r[z.get()].getBit(y.get()), 0);
+										cc[HC].set(0);
+										
+										if (z.get() == R_HL)
+										{
+											t += 4;
+											m += 1;
+										}
+										
+										t += 8;
+										m += 2;
+										pc.add(2);
+										break;
+									}
+									
+									case 2:				// RES y, r[z]
+									{
+										r[z.get()].setBit(y.get(), 0);
+										
+										if (z.get() == R_HL)
+										{
+											t += 8;
+											m += 2;
+										}
+										
+										t += 8;
+										m += 2;
+										pc.add(2);
+										break;
+									}
+									
+									case 3:				// SET y, r[z]
+									{
+										r[z.get()].setBit(y.get(), 1);
+										
+										if (z.get() == R_HL)
+										{
+											t += 8;
+											m += 2;
+										}
+										
+										t += 8;
+										m += 2;
+										pc.add(2);
+										break;
+									}
+								}
 								
 								break;
 							}
@@ -1037,6 +1092,16 @@ public class CPU
 						pc.add(2);
 						break;
 					}
+					
+					case 7:								// RST y*8
+					{
+						call(y.get() * 8);
+						
+						t += 16;
+						m += 4;
+						pc.add(1);
+						break;
+					}
 				}
 				
 				break;
@@ -1088,6 +1153,25 @@ public class CPU
 		stack[rp[SP].get()].set(0);
 		
 		return stackVal;
+	}
+	
+	void splitOpcode(UnsignedByte op)
+	{
+		x.setBit(1, op.getBit(7));
+		x.setBit(0, op.getBit(6));
+		
+		y.setBit(2, op.getBit(5));
+		y.setBit(1, op.getBit(4));
+		y.setBit(0, op.getBit(3));
+		
+		z.setBit(2, op.getBit(2));
+		z.setBit(1, op.getBit(1));
+		z.setBit(0, op.getBit(0));
+		
+		p.setBit(1, op.getBit(5));
+		p.setBit(0, op.getBit(4));
+		
+		q.setBit(0, op.getBit(3));
 	}
 	
 	void alu(int index, int operand)
@@ -1161,11 +1245,139 @@ public class CPU
 		}
 	}
 	
+	void rot(int index, int reg)
+	{
+		switch (index)
+		{
+			case 0:										// RLC
+			{
+				int prevBit7 = r[reg].getBit(7);
+				
+				r[reg].left(1);
+				r[reg].setBit(0, prevBit7);
+				
+				setCA(prevBit7);
+				flags("Z", 0, r[reg].get(), 0);
+				cc[HC].set(0);
+				
+				break;
+			}
+			
+			case 1:										// RRC
+			{
+				int prevBit0 = r[reg].getBit(0);
+				
+				r[reg].right(1);
+				r[reg].setBit(7, prevBit0);
+				
+				setCA(prevBit0);
+				flags("Z", 0, r[reg].get(), 0);
+				cc[HC].set(0);
+				
+				break;
+			}
+			
+			case 2:										// RL
+			{
+				int prevBit7 = r[reg].getBit(7);
+				
+				r[reg].left(1);
+				r[reg].setBit(0, cc[CA].get());
+				
+				setCA(prevBit7);
+				flags("Z", 0, r[reg].get(), 0);
+				cc[HC].set(0);
+				
+				break;
+			}
+			
+			case 3:										// RR
+			{
+				int prevBit0 = r[reg].getBit(0);
+				
+				r[reg].right(1);
+				r[reg].setBit(7, cc[CA].get());
+				
+				setCA(prevBit0);
+				flags("Z", 0, r[reg].get(), 0);
+				cc[HC].set(0);
+				
+				break;
+			}
+			
+			case 4:										// SLA
+			{
+				int prevBit7 = r[reg].getBit(7);
+				int prevBit0 = r[reg].getBit(0);
+				
+				r[reg].left(1);
+				r[reg].setBit(0, prevBit0);
+				
+				setCA(prevBit7);
+				flags("Z", 0, r[reg].get(), 0);
+				cc[HC].set(0);
+				
+				break;
+			}
+			
+			case 5:										// SRA
+			{
+				int prevBit7 = r[reg].getBit(7);
+				int prevBit0 = r[reg].getBit(0);
+				
+				r[reg].right(1);
+				r[reg].setBit(7, prevBit7);
+				
+				setCA(prevBit0);
+				flags("Z", 0, r[reg].get(), 0);
+				cc[HC].set(0);
+				
+				break;
+			}
+			
+			case 6:										// SWAP
+			{
+				UnsignedByte prevReg = new UnsignedByte(r[reg].b);
+				
+				r[reg].setBit(0, prevReg.getBit(4));
+				r[reg].setBit(1, prevReg.getBit(5));
+				r[reg].setBit(2, prevReg.getBit(6));
+				r[reg].setBit(3, prevReg.getBit(7));
+				
+				r[reg].setBit(4, prevReg.getBit(0));
+				r[reg].setBit(5, prevReg.getBit(1));
+				r[reg].setBit(6, prevReg.getBit(2));
+				r[reg].setBit(7, prevReg.getBit(3));
+				
+				flags("Z", 0, r[reg].get(), 0);
+				cc[HC].set(0);
+				setCA(0);
+				
+				break;
+			}
+			
+			case 7:										// SRL
+			{
+				int prevBit0 = r[reg].getBit(0);
+				
+				r[reg].right(1);
+				r[reg].setBit(7, prevBit0);
+				
+				setCA(prevBit0);
+				flags("Z", 0, r[reg].get(), 0);
+				cc[HC].set(0);
+				
+				break;
+			}
+		}
+	}
+	
 	void flags(String flags, int operation, int fnum, int snum)
 	{
 		switch (operation)
 		{
 			case 0:										// ADD flags
+			{
 				cc[NE].set(0);
 				
 				if (flags.contains("Z"))
@@ -1190,6 +1402,7 @@ public class CPU
 				}
 				
 				break;
+			}
 			
 			case 5:										// CP flags (same as SUB flags)
 			
