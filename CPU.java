@@ -974,6 +974,38 @@ public class CPU
 						
 						break;
 					}
+					
+					case 4:
+					{
+						switch (y.get())
+						{
+							case 0:
+							
+							case 1:
+							
+							case 2:
+							
+							case 3:						// CALL cc[y], nn
+							{
+								pc.add(3);
+								
+								if (cc[y.get()].get() == 0)
+								{
+									t += 12;
+									m += 3;
+									break;
+								}
+								
+								call(nn.get());
+								
+								t += 24;
+								m += 6;
+								break;
+							}
+						}
+						
+						break;
+					}
 				}
 				
 				break;
@@ -986,6 +1018,15 @@ public class CPU
 		memory[rp[HL].get()].set(r[R_HL]);
 	}
 	
+	void call(int address)
+	{
+		stack[rp[SP].get()].set(pc);
+		
+		rp[SP].add(1);
+		
+		pc.set(address);
+	}
+	
 	void ret()
 	{
 		rp[SP].sub(1);
@@ -993,6 +1034,13 @@ public class CPU
 		pc.set(stack[rp[SP].get()]);
 		
 		stack[rp[SP].get()].set(0);
+	}
+	
+	void push(int value)
+	{
+		stack[rp[SP].get()].set(value);
+		
+		rp[SP].add(1);
 	}
 	
 	short pop()
