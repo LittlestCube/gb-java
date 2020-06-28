@@ -447,20 +447,14 @@ public class CPU
 						
 						if (y.get() == R_HL)
 						{
-							memory[rp[HL].get()].add(1);
-							
-							t += 12;
-							m += 3;
+							t += 8;
+							m += 2;
 						}
 						
-						else
-						{
-							r[y.get()].add(1);
+						r[y.get()].add(1);
 							
-							t += 4;
-							m += 1;
-						}
-						
+						t += 4;
+						m += 1;
 						pc.add(1);
 						break;
 					}
@@ -471,20 +465,14 @@ public class CPU
 						
 						if (y.get() == R_HL)
 						{
-							memory[rp[HL].get()].sub(1);
-							
-							t += 12;
-							t += 3;
+							t += 8;
+							m += 2;
 						}
 						
-						else
-						{
-							r[y.get()].sub(1);
+						r[y.get()].sub(1);
 							
-							t += 4;
-							m += 1;
-						}
-						
+						t += 4;
+						m += 1;
 						pc.add(1);
 						break;
 					}
@@ -686,7 +674,7 @@ public class CPU
 				break;
 			}
 			
-			case 2:
+			case 2:										// alu[y] r[z]
 			{
 				alu(y.get(), r[z.get()].get());
 				
@@ -1037,6 +1025,16 @@ public class CPU
 							}
 						}
 						
+						break;
+					}
+					
+					case 6:								// alu[y] n
+					{
+						alu(y.get(), n.get());
+						
+						t += 8;
+						m += 2;
+						pc.add(2);
 						break;
 					}
 				}
