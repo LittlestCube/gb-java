@@ -1,6 +1,11 @@
 import littlecube.unsigned.*;
 import littlecube.bitutil.*;
 
+import java.nio.file.Files;
+import java.nio.file.Paths;
+
+import java.io.IOException;
+
 import java.util.Random;
 
 public class CPU
@@ -34,6 +39,8 @@ public class CPU
 	boolean ei;
 	
 	UnsignedByte memory[];
+	
+	boolean run;
 	
 	final int IE = 0xFFFF;
 	final int IF = 0xFF0F;
@@ -79,8 +86,7 @@ public class CPU
 	
 	UnsignedShort stack[];
 	
-	String alu[];
-	String rot[];
+	String debugging;
 	
 	public CPU()
 	{
@@ -127,7 +133,7 @@ public class CPU
 		{
 			Random rand = new Random();
 			
-			memory[i] = new UnsignedByte(rand.nextInt());
+			memory[i] = new UnsignedByte();
 		}
 		
 		memory[IE].setBit(5, 1);
@@ -138,10 +144,21 @@ public class CPU
 		memory[IF].setBit(6, 1);
 		memory[IF].setBit(7, 1);
 		
+		run = false;
+		
 		for (int i = 0; i < r.length; i++)
 		{
 			r[i] = new UnsignedByte();
 		}
+		
+		/*r[A].set(0x01);
+		r[B].set(0x00);
+		r[C].set(0x13);
+		r[D].set(0x00);
+		r[E].set(0xD8);
+		r[H].set(0x01);
+		r[L].set(0x4D);
+		pc.set(0x100);*/
 		
 		for (int i = 0; i < cc.length; i++)
 		{
@@ -153,6 +170,8 @@ public class CPU
 			rp[i] = new UnsignedShort();
 		}
 		
+		//rp[SP].set(0xFFFE);
+		
 		for (int i = 0; i < rp2.length; i++)
 		{
 			rp2[i] = new UnsignedShort();
@@ -162,9 +181,40 @@ public class CPU
 		{
 			stack[i] = new UnsignedShort();
 		}
+	}
+	
+	void debug()
+	{
+		debugging = "";
 		
-		alu = new String[] { "ADD A", "ADC A", "SUB", "SBC A", "AND", "XOR", "OR", "CP" };
-		rot = new String[] { "RLC", "RRC", "RL", "RR", "SLA", "SRA", "SWAP", "SRL" };
+		debugging += String.format("A: 0x%02X\n", r[A].get());
+		debugging += String.format("B: 0x%02X\n", r[B].get());
+		debugging += String.format("C: 0x%02X\n", r[C].get());
+		debugging += String.format("D: 0x%02X\n", r[D].get());
+		debugging += String.format("E: 0x%02X\n", r[E].get());
+		debugging += String.format("H: 0x%02X\n", r[H].get());
+		debugging += String.format("L: 0x%02X\n", r[L].get());
+		debugging += String.format("F: 0x%02X\n", r[F].get());
+		debugging += String.format("\nopcode: 0x%02X\n", opcode.get());
+		debugging += String.format("\npc: 0x%02X\n", pc.get());
+		debugging += String.format("\nsp: 0x%02X\n", rp[SP].get());
+		
+		if (GB.debug)
+		{
+			GB.ppu.debugText.setText(debugging);
+		}
+	}
+	
+	public void loadGame(String filepath) throws IOException
+	{
+		byte[] ROM = Files.readAllBytes(Paths.get(filepath));
+		
+		for (int i = 0; i < ROM.length; i++)
+		{
+			memory[i].set(ROM[i]);
+		}
+		
+		run = true;
 	}
 	
 	public void cycle()
@@ -278,8 +328,8 @@ public class CPU
 							
 							case 1:						// LD (nn), SP
 							{
-								memory[nn.get()].set(BitUtil.subByte(rp[SP].get(), 0));
-								memory[nn.get() + 1].set(BitUtil.subByte(rp[SP].get(), 1));
+								memory[nn.get()].set(BitUtil.subByte(rp[SP].get(), 1));
+								memory[nn.get() + 1].set(BitUtil.subByte(rp[SP].get(), 0));
 								
 								t += 20;
 								m += 5;
@@ -289,11 +339,16 @@ public class CPU
 							
 							case 2:						// STOP
 							{
+								System.out.println("W: this boy called STOP");
+								
 								while (true)
 								{
-									// TODO: break when input detected
-									System.out.println("I: this boy called STOP");
-									break;
+									// TODO: get rid of all this and break when input detected
+									
+									if (opcode.get() == 0)
+									{
+										break;
+									}
 								}
 								
 								t += 4;
@@ -311,7 +366,13 @@ public class CPU
 								break;
 							}
 							
-							default:					// JR cc[y - 4], d
+							case 4:
+							
+							case 5:
+							
+							case 6:
+							
+							case 7:						// JR cc[y - 4], d
 							{
 								if (cc[y.get() - 4].get() == 1)
 								{
@@ -324,7 +385,7 @@ public class CPU
 								{
 									t += 8;
 									m += 2;
-									pc.set(pc.get() + 1);
+									pc.add(1);
 								}
 								
 								break;
@@ -340,6 +401,8 @@ public class CPU
 						{
 							case 0:						// LD rp[p], nn
 							{
+								System.out.printf("nn is %04X at pc %04X during opcode %04X to load into rp[%d]\n", nn.get(), pc.get(), opcode.get(), p.get());
+								
 								rp[p.get()].set(nn.get());
 								
 								t += 12;
@@ -373,7 +436,7 @@ public class CPU
 						{
 							case 0:						// LD (rp[p]), A
 							{							// (this is insanely hard to read if I ever come back here; if p < 2 then memory[rp[p]] gets loaded into. otherwise, we have to load into either memory[rp[HL++]] (p == 2) or memory[rp[HL--]] (p == 3))
-								memory[rp[(p.get() == 3) ? HL : p.get()].get()].set(r[A]);
+								memory[rp[(p.get() == 3) ? p.get() - 1 : p.get()].get()].set(r[A]);
 								
 								rp[HL].add((p.get() < 2) ? 0 : ((p.get() == 2) ? 1 : -1));
 								
@@ -467,20 +530,14 @@ public class CPU
 					{
 						if (y.get() == R_HL)
 						{
-							memory[rp[HL].get()].set(n);
-							
-							t += 12;
-							t += 3;
+							t += 4;
+							t += 1;
 						}
 						
-						else
-						{
-							r[y.get()].set(n);
+						r[y.get()].set(n);
 							
-							t += 8;
-							m += 2;
-						}
-						
+						t += 8;
+						m += 2;
 						pc.add(2);
 						break;
 					}
@@ -769,7 +826,7 @@ public class CPU
 								
 								if (p.get() == AF)
 								{
-									r[F].set(rp2[AF].getByte(0));
+									r[A].set(rp2[AF].getByte(1));
 									
 									setZ(r[F].getBit(7));
 									cc[NE].set(r[F].getBit(6));
@@ -920,8 +977,7 @@ public class CPU
 							
 							case 1:									// CB-prefixed
 							{
-								opcode.set(memory[pc.get() + 1]);
-								splitOpcode(opcode);
+								splitOpcode(n);
 								
 								switch (x.get())
 								{
@@ -1111,10 +1167,15 @@ public class CPU
 		clockt += t;
 		clockm += m;
 		
+		debug();
+		
 		if (t == 0)
 		{
-			System.out.println("E: Unrecognized opcode...");
+			System.out.printf("E: Unrecognized opcode 0x%02X at pc 0x%02X\n", opcode.get(), pc.get());
+			pc.add(1);
 		}
+		
+		System.out.print((char) memory[0xFF01].get());
 		
 		memory[rp[HL].get()].set(r[R_HL]);
 	}
@@ -1123,14 +1184,14 @@ public class CPU
 	{
 		stack[rp[SP].get()].set(pc);
 		
-		rp[SP].add(1);
+		rp[SP].sub(1);
 		
 		pc.set(address);
 	}
 	
 	void ret()
 	{
-		rp[SP].sub(1);
+		rp[SP].add(1);
 		
 		pc.set(stack[rp[SP].get()]);
 		
@@ -1141,14 +1202,14 @@ public class CPU
 	{
 		stack[rp[SP].get()].set(value);
 		
-		rp[SP].add(1);
+		rp[SP].sub(1);
 	}
 	
 	short pop()
 	{
-		rp[SP].sub(1);
+		rp[SP].add(1);
 		
-		short stackVal = stack[rp[SP].get()].s;
+		short stackVal = (short) stack[rp[SP].get()].get();
 		
 		stack[rp[SP].get()].set(0);
 		
