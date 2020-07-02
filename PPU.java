@@ -2,6 +2,8 @@
 
 import javax.swing.JFrame;
 import javax.swing.JFileChooser;
+import javax.swing.JOptionPane;
+import javax.swing.JScrollPane;
 import javax.swing.JLabel;
 import javax.swing.JTextArea;
 import javax.swing.ImageIcon;
@@ -14,8 +16,10 @@ import javax.swing.KeyStroke;
 import javax.swing.filechooser.*;
 
 import java.awt.event.ActionListener;
+import java.awt.event.WindowAdapter;
 import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
+import java.awt.event.WindowEvent;
 
 import java.awt.image.BufferedImage;
 
@@ -23,13 +27,20 @@ public class PPU implements ActionListener
 {
 	JFrame frame;
 	JFrame debugFrame;
+	JFrame ramFrame;
 	JMenuBar bar;
 	JMenu file;
 	JMenu debug;
 	JMenuItem open;
 	JMenuItem debugItem;
+	JMenuItem ram;
+	JMenuItem pause;
+	JMenuItem sleep;
 	
-	JTextArea debugText;
+	static JTextArea debugText;
+	static JTextArea ramText;
+	
+	JScrollPane scroll;
 	
 	JFileChooser fc;
 	
@@ -55,11 +66,16 @@ public class PPU implements ActionListener
 		
 		open = new JMenuItem("Open");
 		debugItem = new JMenuItem("Debugger");
+		ram = new JMenuItem("RAM View");
+		pause = new JMenuItem("Pause");
+		sleep = new JMenuItem("Sleep Value");
 		file = new JMenu("File");
 		debug = new JMenu("Debug");
 		bar = new JMenuBar();
 		
 		open.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_O, ActionEvent.CTRL_MASK));
+		debugItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_D, ActionEvent.CTRL_MASK));
+		ram.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_V, ActionEvent.CTRL_MASK));
 		
 		display = new BufferedImage(w * scale, h * scale, BufferedImage.TYPE_INT_RGB);
 		JLabel item = new JLabel(new ImageIcon(display));
@@ -67,12 +83,19 @@ public class PPU implements ActionListener
 		
 		file.add(open);
 		debug.add(debugItem);
+		debug.add(ram);
+		debug.addSeparator();
+		debug.add(pause);
+		debug.add(sleep);
 		bar.add(file);
 		bar.add(debug);
 		frame.setJMenuBar(bar);
 		
 		open.addActionListener(this);
 		debugItem.addActionListener(this);
+		ram.addActionListener(this);
+		pause.addActionListener(this);
+		sleep.addActionListener(this);
 		
 		frame.pack();
 		frame.setVisible(true);
@@ -80,13 +103,69 @@ public class PPU implements ActionListener
 	
 	void debugWindow()
 	{
-		debugText = new JTextArea(30, 20);
-		debugFrame = new JFrame("Debugger");
-		debugFrame.add(debugText);
-		debugFrame.pack();
-		GB.debug = true;
-		debugFrame.setVisible(true);
-		GB.cpu.debug();
+		if (!GB.debug)
+		{
+			debugText = new JTextArea(30, 20);
+			debugText.setEnabled(false);
+			
+			debugFrame = new JFrame("Debugger");
+			
+			debugFrame.addWindowListener(new WindowAdapter()
+			{
+				public void windowClosing(WindowEvent e)
+				{
+					GB.debug = false;
+					debugFrame.dispose();
+				}
+			});
+			
+			debugFrame.add(debugText);
+			debugFrame.pack();
+			
+			debugFrame.setVisible(true);
+			
+			GB.debug = true;
+			GB.cpu.debug();
+		}
+		
+		else
+		{
+			debugFrame.requestFocus();
+		}
+	}
+	
+	void ramWindow()
+	{
+		if (!GB.ram)
+		{
+			ramText = new JTextArea(1, 23);
+			ramText.setEnabled(false);
+			
+			scroll = new JScrollPane(ramText);
+			
+			ramFrame = new JFrame("Memory View");
+			ramFrame.add(scroll);
+			ramFrame.pack();
+			
+			ramFrame.addWindowListener(new WindowAdapter()
+			{
+				public void windowClosing(WindowEvent e)
+				{
+					GB.ram = false;
+					ramFrame.dispose();
+				}
+			});
+			
+			ramFrame.setVisible(true);
+			
+			GB.ram = true;
+			GB.cpu.ram();
+		}
+		
+		else
+		{
+			ramFrame.requestFocus();
+		}
 	}
 	
 	public void actionPerformed(ActionEvent e)
@@ -102,22 +181,30 @@ public class PPU implements ActionListener
 			if (fci == JFileChooser.APPROVE_OPTION) {
 				rompath = fc.getSelectedFile().getAbsolutePath();
 				
-				try
-				{
-					GB.cpu.loadGame(rompath);
-				}
-				
-				catch (Exception exc)
-				{
-					System.out.println("E: Couldn't read file.");
-					exc.printStackTrace();
-				}
+				GB.cpu.init();
+				GB.cpu.loadGame(rompath);
+				GB.cpu.loadBIOS();
 			}
 		}
 		
 		if (src == debugItem)
 		{
 			debugWindow();
+		}
+		
+		if (src == pause)
+		{
+			GB.cpu.run = false;
+		}
+		
+		if (src == sleep)
+		{
+			GB.millisleeps = Integer.parseInt(JOptionPane.showInputDialog(frame, "How many milliseconds between cycles?", GB.millisleeps));
+		}
+		
+		if (src == ram)
+		{
+			ramWindow();
 		}
 	}
 }
