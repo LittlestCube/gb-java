@@ -97,6 +97,8 @@ public class PPU implements ActionListener
 		pause.addActionListener(this);
 		sleep.addActionListener(this);
 		
+		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
+		
 		frame.pack();
 		frame.setVisible(true);
 	}
@@ -122,6 +124,8 @@ public class PPU implements ActionListener
 			debugFrame.add(debugText);
 			debugFrame.pack();
 			
+			debugFrame.setLocationRelativeTo(null);
+			
 			debugFrame.setVisible(true);
 			
 			GB.debug = true;
@@ -146,6 +150,8 @@ public class PPU implements ActionListener
 			ramFrame = new JFrame("Memory View");
 			ramFrame.add(scroll);
 			ramFrame.pack();
+			
+			ramFrame.setLocationRelativeTo(null);
 			
 			ramFrame.addWindowListener(new WindowAdapter()
 			{

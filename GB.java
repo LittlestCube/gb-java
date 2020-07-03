@@ -34,19 +34,19 @@ public class GB
 			{
 				while (cpu.run)
 				{
-					if (cpu.pc.get() == 0x100)
-					{
-						//cpu.replaceBIOS();
-						
-						cpu.run = false;
-					}
-					
-					cpu.memory[0xFF44].set(0x90);						// PPU substitute
-					
 					if (cpu.memory[0xFF02].get() == 0xFF)
 					{
 						System.out.print((char) cpu.memory[0xFF01].get());
+						
+						cpu.memory[0xFF02].set(0x7E);
 					}
+					
+					if (cpu.pc.get() == 0x100)
+					{
+						cpu.replaceBIOS();
+					}
+					
+					cpu.memory[0xFF44].set(0x90);						// PPU substitute
 					
 					Thread.sleep(millisleeps);
 					
