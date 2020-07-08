@@ -37,6 +37,8 @@ public class CPU
 	
 	boolean biosDone;
 	
+	boolean cycleDone;
+	
 	boolean stop;
 	
 	boolean halt;
@@ -121,6 +123,8 @@ public class CPU
 		nn = new UnsignedShort();
 		
 		biosDone = false;
+		
+		cycleDone = true;
 		
 		stop = false;
 		
@@ -322,6 +326,8 @@ public class CPU
 	
 	public void cycle()
 	{
+		cycleDone = false;
+		
 		if (stop)
 		{
 			return;
@@ -1327,11 +1333,12 @@ public class CPU
 					
 					case 7:								// RST y*8
 					{
+						pc.add(1);
+						
 						call(y.get() * 8);
 						
 						t += 16;
 						m += 4;
-						pc.add(1);
 						break;
 					}
 				}
@@ -1348,6 +1355,8 @@ public class CPU
 			System.out.printf("E: Unrecognized opcode 0x%02X at pc 0x%02X\n", opcode.get(), pc.get());
 			pc.add(1);
 		}
+		
+		cycleDone = true;
 	}
 	
 	void call(int address)
@@ -1440,7 +1449,7 @@ public class CPU
 			case 3:										// SBC A
 			{
 				r[A].sub(operand + cc[C].get());
-				flags("Z CA HC", 7, prevA, operand + cc[C].get());
+				flags("Z CA HC", 7, prevA, operand);
 				
 				break;
 			}

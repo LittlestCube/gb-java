@@ -76,6 +76,7 @@ public class PPU implements ActionListener
 		open.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_O, ActionEvent.CTRL_MASK));
 		debugItem.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_D, ActionEvent.CTRL_MASK));
 		ram.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_V, ActionEvent.CTRL_MASK));
+		pause.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_P, ActionEvent.CTRL_MASK));
 		
 		display = new BufferedImage(w * scale, h * scale, BufferedImage.TYPE_INT_RGB);
 		JLabel item = new JLabel(new ImageIcon(display));
@@ -180,6 +181,8 @@ public class PPU implements ActionListener
 		
 		if (src == open)
 		{
+			GB.cpu.run = false;
+			
 			SwingUtilities.updateComponentTreeUI(fc);
 			fc.setFileSelectionMode(JFileChooser.FILES_ONLY);
 			int fci = fc.showOpenDialog(null);
@@ -200,12 +203,26 @@ public class PPU implements ActionListener
 		
 		if (src == pause)
 		{
-			GB.cpu.run = false;
+			GB.cpu.run ^= true;
 		}
 		
 		if (src == sleep)
 		{
-			GB.millisleeps = Integer.parseInt(JOptionPane.showInputDialog(frame, "How many milliseconds between cycles?", GB.millisleeps));
+			String input = JOptionPane.showInputDialog(frame, "How many milliseconds between cycles?", GB.millisleeps);
+			
+			int newsleeps = 0;
+			
+			if (input == null)
+			{
+				newsleeps = GB.millisleeps;
+			}
+			
+			else
+			{
+				newsleeps = Integer.parseInt(input);
+			}
+			
+			GB.millisleeps = newsleeps;
 		}
 		
 		if (src == ram)
