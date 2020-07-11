@@ -295,7 +295,7 @@ public class CPU
 		{
 			ROM = Files.readAllBytes(Paths.get(filepath));
 			
-			for (int i = 0; i < ROM.length; i++)
+			for (int i = 0; i < 0x8000; i++)
 			{
 				memory[i].set(ROM[i]);
 			}
@@ -699,12 +699,14 @@ public class CPU
 						{
 							case 0:						// RLCA
 							{
+								int prevBit7 = r[A].getBit(7);
+								
 								flags("Z HC", 0, 0, 0);
 								
-								cc(CA, r[A].getBit(7));
+								r[A].left(1);
 								
-								r[A].set(r[A].get() << 1);
-								r[A].setBit(0, cc(CA));
+								cc(CA, prevBit7);
+								r[A].setBit(0, prevBit7);
 								
 								t += 4;
 								m += 1;
@@ -714,12 +716,14 @@ public class CPU
 							
 							case 1:						// RRCA
 							{
+								int prevBit0 = r[A].getBit(0);
+								
 								flags("Z HC", 0, 0, 0);
 								
-								cc(CA, r[A].getBit(0));
+								r[A].right(1);
 								
-								r[A].set(r[A].get() >> 1);
-								r[A].setBit(7, cc(CA));
+								cc(CA, prevBit0);
+								r[A].setBit(7, prevBit0);
 								
 								t += 4;
 								m += 1;
@@ -731,12 +735,12 @@ public class CPU
 							{
 								flags("Z HC", 0, 0, 0);
 								
-								int prevbit7 = r[A].getBit(7);
+								int prevBit7 = r[A].getBit(7);
 								
 								r[A].left(1);
-								r[A].setBit(0, prevbit7);
+								r[A].setBit(0, cc(CA));
 								
-								cc(CA, prevbit7);
+								cc(CA, prevBit7);
 								
 								t += 4;
 								m += 1;
@@ -748,12 +752,12 @@ public class CPU
 							{
 								flags("Z HC", 0, 0, 0);
 								
-								int prevbit0 = r[A].getBit(0);
+								int prevBit0 = r[A].getBit(0);
 								
 								r[A].right(1);
-								r[A].setBit(7, prevbit0);
+								r[A].setBit(7, cc(CA));
 								
-								cc(CA, prevbit0);
+								cc(CA, prevBit0);
 								
 								t += 4;
 								m += 1;
@@ -950,7 +954,7 @@ public class CPU
 								rp(SP, rp(SP).get() + d.b);
 								
 								cc(Z, 0);
-								flags("HC C", 0, prevSP, d.b);
+								flags("HC CA", 0, prevSP, d.b);
 								
 								t += 16;
 								m += 4;
@@ -978,7 +982,7 @@ public class CPU
 								r[R_HL].set(memory[rp(HL).get()]);
 								
 								cc(Z, 0);
-								flags("HC C", 0, prevSP, d.b);
+								flags("HC CA", 0, prevSP, d.b);
 								
 								t += 12;
 								m += 3;
@@ -1417,7 +1421,7 @@ public class CPU
 			
 			case 1:										// ADC A
 			{
-				r[A].add(operand + cc(C));
+				r[A].add(operand + cc(CA));
 				flags("Z CA HC", 6, prevA, operand);
 				
 				break;
@@ -1433,7 +1437,7 @@ public class CPU
 			
 			case 3:										// SBC A
 			{
-				r[A].sub(operand + cc(C));
+				r[A].sub(operand + cc(CA));
 				flags("Z CA HC", 7, prevA, operand);
 				
 				break;
@@ -1610,8 +1614,6 @@ public class CPU
 		{
 			case 0:										// ADD flags
 			{
-				cc(NE, 0);
-				
 				if (flags.contains("Z"))
 				{
 					boolean zero = (fnum + snum) % 256 == 0;
@@ -1619,12 +1621,7 @@ public class CPU
 					cc(Z, zero ? 1 : 0);
 				}
 				
-				if (flags.contains("CA"))
-				{
-					boolean carry = fnum + snum > 255;
-					
-					cc(CA, carry ? 1 : 0);
-				}
+				cc(NE, 0);
 				
 				if (flags.contains("HC"))
 				{
@@ -1633,13 +1630,18 @@ public class CPU
 					cc(HC, hcarry ? 1 : 0);
 				}
 				
+				if (flags.contains("CA"))
+				{
+					boolean carry = fnum + snum > 255;
+					
+					cc(CA, carry ? 1 : 0);
+				}
+				
 				break;
 			}
 			
 			case 1:										// SUB flags
 			{
-				cc(NE, 1);
-				
 				if (flags.contains("Z"))
 				{
 					boolean zero = fnum - snum == 0;
@@ -1647,18 +1649,20 @@ public class CPU
 					cc(Z, zero ? 1 : 0);
 				}
 				
-				if (flags.contains("CA"))
-				{
-					boolean carry = snum > fnum;
-					
-					cc(CA, carry ? 1 : 0);
-				}
+				cc(NE, 1);
 				
 				if (flags.contains("HC"))
 				{
 					boolean hcarry = (snum & 0xF) > (fnum & 0xF);
 					
 					cc(HC, hcarry ? 1 : 0);
+				}
+				
+				if (flags.contains("CA"))
+				{
+					boolean carry = snum > fnum;
+					
+					cc(CA, carry ? 1 : 0);
 				}
 				
 				break;
@@ -1666,8 +1670,6 @@ public class CPU
 			
 			case 2:										// AND flags
 			{
-				cc(NE, 0);
-				
 				if (flags.contains("Z"))
 				{
 					boolean zero = (fnum & snum) == 0;
@@ -1675,14 +1677,16 @@ public class CPU
 					cc(Z, zero ? 1 : 0);
 				}
 				
-				if (flags.contains("CA"))
-				{
-					cc(CA, 0);
-				}
+				cc(NE, 0);
 				
 				if (flags.contains("HC"))
 				{
 					cc(HC, 1);
+				}
+				
+				if (flags.contains("CA"))
+				{
+					cc(CA, 0);
 				}
 				
 				break;
@@ -1690,8 +1694,6 @@ public class CPU
 			
 			case 3:										// XOR flags
 			{
-				cc(NE, 0);
-				
 				if (flags.contains("Z"))
 				{
 					boolean zero = (fnum ^ snum) == 0;
@@ -1699,14 +1701,16 @@ public class CPU
 					cc(Z, zero ? 1 : 0);
 				}
 				
-				if (flags.contains("CA"))
-				{
-					cc(CA, 0);
-				}
+				cc(NE, 0);
 				
 				if (flags.contains("HC"))
 				{
 					cc(HC, 0);
+				}
+				
+				if (flags.contains("CA"))
+				{
+					cc(CA, 0);
 				}
 				
 				break;
@@ -1714,8 +1718,6 @@ public class CPU
 			
 			case 4:										// OR flags
 			{
-				cc(NE, 0);
-				
 				if (flags.contains("Z"))
 				{
 					boolean zero = (fnum | snum) == 0;
@@ -1723,14 +1725,16 @@ public class CPU
 					cc(Z, zero ? 1 : 0);
 				}
 				
-				if (flags.contains("CA"))
-				{
-					cc(CA, 0);
-				}
+				cc(NE, 0);
 				
 				if (flags.contains("HC"))
 				{
 					cc(HC, 0);
+				}
+				
+				if (flags.contains("CA"))
+				{
+					cc(CA, 0);
 				}
 				
 				break;
@@ -1738,13 +1742,20 @@ public class CPU
 			
 			case 5:										// CP flags
 			{
-				cc(NE, 1);
-				
 				if (flags.contains("Z"))
 				{
 					boolean zero = fnum - snum == 0;
 					
 					cc(Z, zero ? 1 : 0);
+				}
+				
+				cc(NE, 1);
+				
+				if (flags.contains("HC"))
+				{
+					boolean hcarry = (snum & 0xF) > (fnum & 0xF);
+					
+					cc(HC, hcarry ? 1 : 0);
 				}
 				
 				if (flags.contains("CA"))
@@ -1754,39 +1765,32 @@ public class CPU
 					cc(CA, carry ? 1 : 0);
 				}
 				
-				if (flags.contains("HC"))
-				{
-					boolean hcarry = (snum & 0xF) > (fnum & 0xF);
-					
-					cc(HC, hcarry ? 1 : 0);
-				}
-				
 				break;
 			}
 			
 			case 6:										// ADC flags
 			{
-				cc(NE, 0);
-				
 				if (flags.contains("Z"))
 				{
-					boolean zero = (fnum + snum) % 256 == 0;
+					boolean zero = ((fnum + snum) + cc(CA)) % 256 == 0;
 					
 					cc(Z, zero ? 1 : 0);
 				}
 				
-				if (flags.contains("CA"))
-				{
-					boolean carry = fnum + snum > 255;
-					
-					cc(CA, carry ? 1 : 0);
-				}
+				cc(NE, 0);
 				
 				if (flags.contains("HC"))
 				{
-					boolean hcarry = (fnum & 0xF) + (snum & 0xF) + cc(C) > 0x0F;
+					boolean hcarry = (fnum & 0x0F) + ((snum & 0x0F) + cc(CA)) > 0x0F;
 					
 					cc(HC, hcarry ? 1 : 0);
+				}
+				
+				if (flags.contains("CA"))
+				{
+					boolean carry = fnum + snum + cc(CA) > 255;
+					
+					cc(CA, carry ? 1 : 0);
 				}
 				
 				break;
@@ -1794,27 +1798,27 @@ public class CPU
 			
 			case 7:										// SBC flags
 			{
-				cc(NE, 0);
-				
 				if (flags.contains("Z"))
 				{
-					boolean zero = (fnum + snum) % 256 == 0;
+					boolean zero = (fnum - (snum + cc(CA))) % 256 == 0;
 					
 					cc(Z, zero ? 1 : 0);
 				}
 				
-				if (flags.contains("CA"))
-				{
-					boolean carry = fnum + snum > 255;
-					
-					cc(CA, carry ? 1 : 0);
-				}
+				cc(NE, 1);
 				
 				if (flags.contains("HC"))
 				{
-					boolean hcarry = (snum & 0x0F) > ((fnum & 0x0F) - cc(C));
+					boolean hcarry = ((snum & 0x0F) + cc(CA)) > (fnum & 0x0F);
 					
 					cc(HC, hcarry ? 1 : 0);
+				}
+				
+				if (flags.contains("CA"))
+				{
+					boolean carry = (snum + cc(CA)) > fnum;
+					
+					cc(CA, carry ? 1 : 0);
 				}
 				
 				break;

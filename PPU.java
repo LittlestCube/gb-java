@@ -197,6 +197,8 @@ public class PPU implements ActionListener
 				GB.cpu.init();
 				GB.cpu.loadGame(rompath);
 				GB.cpu.loadBIOS();
+				
+				frame.setTitle("GrumpBoy - " + getROMTitle());
 			}
 		}
 		
@@ -233,5 +235,17 @@ public class PPU implements ActionListener
 		{
 			ramWindow();
 		}
+	}
+	
+	String getROMTitle()
+	{
+		String title = "";
+		
+		for (int i = 0x134; i <= 0x143; i++)
+		{
+			title += (char) GB.cpu.memory[i].get();
+		}
+		
+		return title;
 	}
 }
