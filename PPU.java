@@ -92,6 +92,8 @@ public class PPU implements ActionListener
 		bar.add(debug);
 		frame.setJMenuBar(bar);
 		
+		pause.setEnabled(false);
+		
 		open.addActionListener(this);
 		debugItem.addActionListener(this);
 		ram.addActionListener(this);
@@ -189,6 +191,8 @@ public class PPU implements ActionListener
 			
 			if (fci == JFileChooser.APPROVE_OPTION) {
 				rompath = fc.getSelectedFile().getAbsolutePath();
+				
+				pause.setEnabled(true);
 				
 				GB.cpu.init();
 				GB.cpu.loadGame(rompath);

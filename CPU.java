@@ -35,6 +35,8 @@ public class CPU
 	
 	UnsignedShort pc;
 	
+	UnsignedShort sp;
+	
 	boolean biosDone;
 	
 	boolean cycleDone;
@@ -66,8 +68,6 @@ public class CPU
 	final int R_HL = 6;
 	final int F = 8;
 	
-	UnsignedByte cc[];
-	
 	final int NZ = 0;
 	final int Z = 1;
 	final int NCA = 2;
@@ -81,16 +81,15 @@ public class CPU
 	final int XOR = 4;
 	final int CP = 5;
 	
-	UnsignedShort rp[];
-	
+	// for use with either rp() or rp2()
 	final int BC = 0;
 	final int DE = 1;
 	final int HL = 2;
 	
+	// for use with rp()
 	final int SP = 3;
 	
-	UnsignedShort rp2[];
-	
+	// for use with rp2()
 	final int AF = 3;
 	
 	String debugging;
@@ -111,6 +110,8 @@ public class CPU
 		clockm = 0;
 		
 		pc = new UnsignedShort();
+		
+		sp = new UnsignedShort();
 		
 		x = new UnsignedByte();
 		y = new UnsignedByte();
@@ -135,30 +136,12 @@ public class CPU
 		ei = false;
 		
 		r = new UnsignedByte[9];
-		cc = new UnsignedByte[6];
-		rp = new UnsignedShort[4];
-		rp2 = new UnsignedShort[4];
 		
 		run = false;
 		
 		for (int i = 0; i < r.length; i++)
 		{
 			r[i] = new UnsignedByte();
-		}
-		
-		for (int i = 0; i < cc.length; i++)
-		{
-			cc[i] = new UnsignedByte();
-		}
-		
-		for (int i = 0; i < rp.length; i++)
-		{
-			rp[i] = new UnsignedShort();
-		}
-		
-		for (int i = 0; i < rp2.length; i++)
-		{
-			rp2[i] = new UnsignedShort();
 		}
 	}
 	
@@ -179,10 +162,10 @@ public class CPU
 	
 	void retainConstants()
 	{
-		r[F].setBit(0, 0);
-		r[F].setBit(1, 0);
-		r[F].setBit(2, 0);
 		r[F].setBit(3, 0);
+		r[F].setBit(2, 0);
+		r[F].setBit(1, 0);
+		r[F].setBit(0, 0);
 		
 		memory[IE].setBit(5, 1);
 		memory[IE].setBit(6, 1);
@@ -214,16 +197,16 @@ public class CPU
 			debugging += String.format("H: 0x%02X\n", r[H].get());
 			debugging += String.format("L: 0x%02X\n", r[L].get());
 			debugging += String.format("F: 0x%02X\n", r[F].get());
-			debugging += String.format("\nrp2 AF: 0x%04X\n", rp2[AF].get());
-			debugging += String.format("rp2 BC: 0x%04X\n", rp2[BC].get());
-			debugging += String.format("rp2 DE: 0x%04X\n", rp2[DE].get());
-			debugging += String.format("rp2 HL: 0x%04X\n", rp2[HL].get());
-			debugging += String.format("\nrp BC: 0x%04X\n", rp[BC].get());
-			debugging += String.format("rp DE: 0x%04X\n", rp[DE].get());
-			debugging += String.format("rp HL: 0x%04X\n", rp[HL].get());
+			debugging += String.format("\nrp2 AF: 0x%04X\n", rp2(AF).get());
+			debugging += String.format("rp2 BC: 0x%04X\n", rp2(BC).get());
+			debugging += String.format("rp2 DE: 0x%04X\n", rp2(DE).get());
+			debugging += String.format("rp2 HL: 0x%04X\n", rp2(HL).get());
+			debugging += String.format("\nrp BC: 0x%04X\n", rp(BC).get());
+			debugging += String.format("rp DE: 0x%04X\n", rp(DE).get());
+			debugging += String.format("rp HL: 0x%04X\n", rp(HL).get());
 			debugging += String.format("\nopcode: 0x%04X\n", opcode.get());
 			debugging += String.format("\npc: 0x%04X\n", pc.get());
-			debugging += String.format("\nsp: 0x%04X\n", rp[SP].get());
+			debugging += String.format("\nsp: 0x%04X\n", sp.get());
 			
 			GB.ppu.debugText.setText(debugging);
 		}
@@ -283,7 +266,7 @@ public class CPU
 				
 				pc.set(0x100);
 				
-				rp[SP].set(0xFFFE);
+				sp.set(0xFFFE);
 			}
 		}
 		
@@ -407,18 +390,7 @@ public class CPU
 			pcForHaltBug = -2;
 		}
 		
-		r[F].set(BitUtil.craftByte(cc[Z].get(), cc[NE].get(), cc[HC].get(), cc[C].get(), 0, 0, 0, 0));
-		
-		rp[BC].craftShort(r[B].b, r[C].b);
-		rp[DE].craftShort(r[D].b, r[E].b);
-		rp[HL].craftShort(r[H].b, r[L].b);
-		
-		rp2[BC].craftShort(r[B].b, r[C].b);
-		rp2[DE].craftShort(r[D].b, r[E].b);
-		rp2[HL].craftShort(r[H].b, r[L].b);
-		rp2[AF].craftShort(r[A].b, r[F].b);
-		
-		r[R_HL].set(memory[rp[HL].get()]);
+		r[R_HL].set(memory[rp(HL).get()]);
 		
 		t = 0;
 		m = 0;
@@ -448,8 +420,8 @@ public class CPU
 							
 							case 1:						// LD (nn), SP
 							{
-								memory[nn.get()].set(rp[SP].subByte(1));
-								memory[nn.get() + 1].set(rp[SP].subByte(0));
+								memory[nn.get()].set(sp.subByte(1));
+								memory[nn.get() + 1].set(sp.subByte(0));
 								
 								t += 20;
 								m += 5;
@@ -491,7 +463,7 @@ public class CPU
 							{
 								pc.add(2);
 								
-								if (cc[y.get() - 4].get() == 0)
+								if (cc(y.get() - 4) == 0)
 								{
 									t += 8;
 									m += 2;
@@ -515,9 +487,7 @@ public class CPU
 						{
 							case 0:						// LD rp[p], nn
 							{
-								rp[p.get()].set(nn.get());
-								
-								movRP(p.get());
+								rp(p.get(), nn.get());
 								
 								t += 12;
 								m += 3;
@@ -527,11 +497,33 @@ public class CPU
 							
 							case 1:						// ADD HL, rp[p]
 							{
-								flags("HC CA", 0, rp[HL].get(), rp[p.get()].get());
+								// crazy flags for this one specific opcode
+								if ((rp(HL).get() & 0x7FF) + (rp(p.get()).get() & 0x7FF) > 0x7FF)
+								{
+									cc(HC, 1);
+								}
 								
-								rp[2].add(rp[p.get()].get());
+								else
+								{
+									cc(HC, 0);
+								}
 								
-								movRP(HL);
+								if (rp(HL).get() + rp(p.get()).get() > 0xFFFF)
+								{
+									cc(CA, 1);
+								}
+								
+								else
+								{
+									cc(CA, 0);
+								}
+								
+								cc(NE, 0);
+								// end crazy flags
+								
+								rp(HL, rp(HL).get() + rp(p.get()).get());
+								
+								updateMEMHL();
 								
 								t += 8;
 								m += 2;
@@ -553,24 +545,22 @@ public class CPU
 								
 								if (p.get() == BC || p.get() == DE)
 								{
-									trueMemP = rp[p.get()].get();
+									trueMemP = rp(p.get()).get();
 								}
 								
 								else
 								{
-									trueMemP = rp[HL].get();
+									trueMemP = rp(HL).get();
 									
 									if (p.get() == 2)
 									{
-										rp[HL].add(1);
+										rp(HL, rp(HL).get() + 1);
 									}
 									
 									else if (p.get() == 3)
 									{
-										rp[HL].sub(1);
+										rp(HL, rp(HL).get() - 1);
 									}
-									
-									movRP(HL);
 								}
 								
 								memory[trueMemP].set(r[A]);
@@ -587,24 +577,22 @@ public class CPU
 								
 								if (p.get() == BC || p.get() == DE)
 								{
-									trueMemP = rp[p.get()].get();
+									trueMemP = rp(p.get()).get();
 								}
 								
 								else
 								{
-									trueMemP = rp[HL].get();
+									trueMemP = rp(HL).get();
 									
 									if (p.get() == 2)
 									{
-										rp[HL].add(1);
+										rp(HL, rp(HL).get() + 1);
 									}
 									
 									else if (p.get() == 3)
 									{
-										rp[HL].sub(1);
+										rp(HL, rp(HL).get() - 1);
 									}
-									
-									movRP(HL);
 								}
 								
 								r[A].set(memory[trueMemP]);
@@ -625,9 +613,7 @@ public class CPU
 						{
 							case 0:						// INC rp[p]
 							{
-								rp[p.get()].add(1);
-								
-								movRP(p.get());
+								rp(p.get(), rp(p.get()).get() + 1);
 								
 								t += 8;
 								m += 2;
@@ -637,9 +623,7 @@ public class CPU
 							
 							case 1:						// DEC rp[p]
 							{
-								rp[p.get()].sub(1);
-								
-								movRP(p.get());
+								rp(p.get(), rp(p.get()).get() - 1);
 								
 								t += 8;
 								m += 2;
@@ -655,6 +639,8 @@ public class CPU
 					{
 						flags("Z HC", 0, r[y.get()].get(), 1);
 						
+						r[y.get()].add(1);
+						
 						if (y.get() == R_HL)
 						{
 							updateMEMHL();
@@ -662,8 +648,6 @@ public class CPU
 							t += 8;
 							m += 2;
 						}
-						
-						r[y.get()].add(1);
 						
 						t += 4;
 						m += 1;
@@ -675,6 +659,8 @@ public class CPU
 					{
 						flags("Z HC", 1, r[y.get()].get(), 1);
 						
+						r[y.get()].sub(1);
+						
 						if (y.get() == R_HL)
 						{
 							updateMEMHL();
@@ -682,8 +668,6 @@ public class CPU
 							t += 8;
 							m += 2;
 						}
-						
-						r[y.get()].sub(1);
 						
 						t += 4;
 						m += 1;
@@ -693,6 +677,8 @@ public class CPU
 					
 					case 6:								// LD r[y], n
 					{
+						r[y.get()].set(n);
+						
 						if (y.get() == R_HL)
 						{
 							updateMEMHL();
@@ -700,8 +686,6 @@ public class CPU
 							t += 4;
 							t += 1;
 						}
-						
-						r[y.get()].set(n);
 						
 						t += 8;
 						m += 2;
@@ -715,10 +699,12 @@ public class CPU
 						{
 							case 0:						// RLCA
 							{
-								setCA(r[A].getBit(7));
+								flags("Z HC", 0, 0, 0);
+								
+								cc(CA, r[A].getBit(7));
 								
 								r[A].set(r[A].get() << 1);
-								r[A].setBit(0, cc[CA].get());
+								r[A].setBit(0, cc(CA));
 								
 								t += 4;
 								m += 1;
@@ -728,10 +714,12 @@ public class CPU
 							
 							case 1:						// RRCA
 							{
-								setCA(r[A].getBit(0));
+								flags("Z HC", 0, 0, 0);
+								
+								cc(CA, r[A].getBit(0));
 								
 								r[A].set(r[A].get() >> 1);
-								r[A].setBit(7, cc[CA].get());
+								r[A].setBit(7, cc(CA));
 								
 								t += 4;
 								m += 1;
@@ -741,12 +729,14 @@ public class CPU
 							
 							case 2:						// RLA
 							{
+								flags("Z HC", 0, 0, 0);
+								
 								int prevbit7 = r[A].getBit(7);
 								
 								r[A].left(1);
 								r[A].setBit(0, prevbit7);
 								
-								setCA(prevbit7);
+								cc(CA, prevbit7);
 								
 								t += 4;
 								m += 1;
@@ -756,12 +746,14 @@ public class CPU
 							
 							case 3:						// RRA
 							{
+								flags("Z HC", 0, 0, 0);
+								
 								int prevbit0 = r[A].getBit(0);
 								
 								r[A].right(1);
 								r[A].setBit(7, prevbit0);
 								
-								setCA(prevbit0);
+								cc(CA, prevbit0);
 								
 								t += 4;
 								m += 1;
@@ -771,15 +763,15 @@ public class CPU
 							
 							case 4:						// DAA
 							{
-								if (cc[NE].get() == 0)
+								if (cc(NE) == 0)
 								{
-									if (cc[CA].get() == 1 || r[A].get() > 0x99)
+									if (cc(CA) == 1 || r[A].get() > 0x99)
 									{
 										r[A].add(0x60);
-										setCA(1);
+										cc(CA, 1);
 									}
 									
-									if (cc[HC].get() == 1 || (r[A].get() & 0x0F) > 0x09)
+									if (cc(HC) == 1 || (r[A].get() & 0x0F) > 0x09)
 									{
 										r[A].add(0x6);
 									}
@@ -787,19 +779,19 @@ public class CPU
 								
 								else
 								{
-									if (cc[CA].get() == 1)
+									if (cc(CA) == 1)
 									{
 										r[A].sub(0x60);
 									}
 									
-									if (cc[HC].get() == 1)
+									if (cc(HC) == 1)
 									{
 										r[A].sub(0x6);
 									}
 								}
 								
-								cc[Z].set(r[A].get() == 0 ? 1 : 0);
-								cc[HC].set(0);
+								cc(Z, r[A].get() == 0 ? 1 : 0);
+								cc(HC, 0);
 								
 								t += 4;
 								m += 1;
@@ -811,8 +803,8 @@ public class CPU
 							{
 								r[A].comp();
 								
-								cc[NE].set(1);
-								cc[HC].set(1);
+								cc(NE, 1);
+								cc(HC, 1);
 								
 								t += 4;
 								m += 1;
@@ -822,9 +814,9 @@ public class CPU
 							
 							case 6:						// SCF
 							{
-								cc[NE].set(0);
-								cc[HC].set(0);
-								setCA(1);
+								cc(NE, 0);
+								cc(HC, 0);
+								cc(CA, 1);
 								
 								t += 4;
 								m += 1;
@@ -834,9 +826,9 @@ public class CPU
 							
 							case 7:						// CCF
 							{
-								cc[NE].set(0);
-								cc[HC].set(0);
-								setCA(cc[CA].get() ^ 1);
+								cc(NE, 0);
+								cc(HC, 0);
+								cc(CA, cc(CA) ^ 1);
 								
 								t += 4;
 								m += 1;
@@ -877,13 +869,13 @@ public class CPU
 				{
 					r[y.get()].set(r[z.get()]);
 					
-					if (z.get() == R_HL)
+					if (y.get() == R_HL)
 					{
-						if (y.get() == R_HL)
-						{
-							updateMEMHL();
-						}
-						
+						updateMEMHL();
+					}
+					
+					if (y.get() == R_HL || z.get() == R_HL)
+					{
 						t += 4;
 						m += 1;
 					}
@@ -927,7 +919,7 @@ public class CPU
 							
 							case 3:						// RET cc[y]
 							{
-								if (cc[y.get()].get() == 0)
+								if (cc(y.get()) == 0)
 								{
 									t += 8;
 									m += 2;
@@ -954,10 +946,10 @@ public class CPU
 							
 							case 5:						// ADD SP, d
 							{
-								int prevSP = rp[SP].get();
-								rp[SP].add(d.b);
+								int prevSP = sp.get();
+								rp(SP, rp(SP).get() + d.b);
 								
-								setZ(0);
+								cc(Z, 0);
 								flags("HC C", 0, prevSP, d.b);
 								
 								t += 16;
@@ -978,16 +970,14 @@ public class CPU
 							
 							case 7:						// LD HL, SP + d
 							{
-								int prevSP = rp[SP].get();
+								int prevSP = sp.get();
 								
-								rp[SP].add(d.b);
+								rp(SP, rp(SP).get() + d.b);
 								
-								rp[HL].set(rp[SP].get());
-								r[R_HL].set(memory[rp[HL].get()]);
+								rp(HL, rp(SP).get());
+								r[R_HL].set(memory[rp(HL).get()]);
 								
-								movRP(HL);
-								
-								setZ(0);
+								cc(Z, 0);
 								flags("HC C", 0, prevSP, d.b);
 								
 								t += 12;
@@ -1006,9 +996,7 @@ public class CPU
 						{
 							case 0:						// POP rp2[p]
 							{
-								rp2[p.get()].set(pop());
-								
-								movRP2(p.get());
+								rp2(p.get(), pop());
 								
 								t += 12;
 								m += 3;
@@ -1042,7 +1030,7 @@ public class CPU
 									
 									case 2:				// JP HL
 									{
-										pc.set(rp[HL]);
+										pc.set(rp(HL));
 										
 										t += 4;
 										m += 1;
@@ -1051,7 +1039,7 @@ public class CPU
 									
 									case 3:				// LD SP, HL
 									{
-										rp[SP].set(rp[HL]);
+										sp.set(rp(HL));
 										
 										t += 8;
 										m += 2;
@@ -1079,7 +1067,7 @@ public class CPU
 							
 							case 3:						// JP cc[y], nn
 							{
-								if (cc[y.get()].get() == 0)
+								if (cc(y.get()) == 0)
 								{
 									t += 12;
 									m += 3;
@@ -1178,7 +1166,7 @@ public class CPU
 									case 1:				// BIT y, r[z]
 									{
 										flags("Z", 0, r[z.get()].getBit(y.get()), 0);
-										cc[HC].set(1);
+										cc(HC, 1);
 										
 										if (z.get() == R_HL)
 										{
@@ -1270,7 +1258,7 @@ public class CPU
 							{
 								pc.add(3);
 								
-								if (cc[y.get()].get() == 0)
+								if (cc(y.get()) == 0)
 								{
 									t += 12;
 									m += 3;
@@ -1294,7 +1282,7 @@ public class CPU
 						{
 							case 0:						// PUSH rp2[p]
 							{
-								push(rp2[p.get()].get());
+								push(rp2(p.get()).get());
 								
 								t += 16;
 								m += 4;
@@ -1361,38 +1349,35 @@ public class CPU
 	
 	void call(int address)
 	{
-		rp[SP].sub(2);
+		rp(SP, rp(SP).get() - 2);
 		
-		memory[rp[SP].get()].set(pc.subByte(0));
-		memory[rp[SP].get() + 1].set(pc.subByte(1));
+		memory[sp.get()].set(pc.subByte(0));
+		memory[sp.get() + 1].set(pc.subByte(1));
 		
 		pc.set(address);
 	}
 	
 	void ret()
 	{
-		pc.setByte(0, memory[rp[SP].get()].get());
-		pc.setByte(1, memory[rp[SP].get() + 1].get());
+		pc.setByte(0, memory[sp.get()].get());
+		pc.setByte(1, memory[sp.get() + 1].get());
 		
-		rp[SP].add(2);
+		rp(SP, rp(SP).get() + 2);
 	}
 	
 	void push(int value)
 	{
-		rp[SP].sub(2);
+		rp(SP, rp(SP).get() - 2);
 		
-		memory[rp[SP].get()].set(BitUtil.subByte(0, value));
-		memory[rp[SP].get() + 1].set(BitUtil.subByte(1, value));
+		memory[sp.get()].set(BitUtil.subByte(0, value));
+		memory[sp.get() + 1].set(BitUtil.subByte(1, value));
 	}
 	
 	short pop()
 	{
-		short stackVal = BitUtil.craftShort(memory[rp[SP].get() + 1].get(), memory[rp[SP].get()].get());
+		short stackVal = BitUtil.craftShort(memory[sp.get() + 1].get(), memory[sp.get()].get());
 		
-		memory[rp[SP].get()].set(0x00);
-		memory[rp[SP].get() + 1].set(0x00);
-		
-		rp[SP].add(2);
+		rp(SP, rp(SP).get() + 2);
 		
 		return stackVal;
 	}
@@ -1432,7 +1417,7 @@ public class CPU
 			
 			case 1:										// ADC A
 			{
-				r[A].add(operand + cc[C].get());
+				r[A].add(operand + cc(C));
 				flags("Z CA HC", 6, prevA, operand);
 				
 				break;
@@ -1448,7 +1433,7 @@ public class CPU
 			
 			case 3:										// SBC A
 			{
-				r[A].sub(operand + cc[C].get());
+				r[A].sub(operand + cc(C));
 				flags("Z CA HC", 7, prevA, operand);
 				
 				break;
@@ -1498,9 +1483,9 @@ public class CPU
 				r[reg].left(1);
 				r[reg].setBit(0, prevBit7);
 				
-				setCA(prevBit7);
+				cc(CA, prevBit7);
 				flags("Z", 0, r[reg].get(), 0);
-				cc[HC].set(0);
+				cc(HC, 0);
 				
 				break;
 			}
@@ -1512,9 +1497,9 @@ public class CPU
 				r[reg].right(1);
 				r[reg].setBit(7, prevBit0);
 				
-				setCA(prevBit0);
+				cc(CA, prevBit0);
 				flags("Z", 0, r[reg].get(), 0);
-				cc[HC].set(0);
+				cc(HC, 0);
 				
 				break;
 			}
@@ -1524,11 +1509,11 @@ public class CPU
 				int prevBit7 = r[reg].getBit(7);
 				
 				r[reg].left(1);
-				r[reg].setBit(0, cc[CA].get());
+				r[reg].setBit(0, cc(CA));
 				
-				setCA(prevBit7);
+				cc(CA, prevBit7);
 				flags("Z", 0, r[reg].get(), 0);
-				cc[HC].set(0);
+				cc(HC, 0);
 				
 				break;
 			}
@@ -1538,11 +1523,11 @@ public class CPU
 				int prevBit0 = r[reg].getBit(0);
 				
 				r[reg].right(1);
-				r[reg].setBit(7, cc[CA].get());
+				r[reg].setBit(7, cc(CA));
 				
-				setCA(prevBit0);
+				cc(CA, prevBit0);
 				flags("Z", 0, r[reg].get(), 0);
-				cc[HC].set(0);
+				cc(HC, 0);
 				
 				break;
 			}
@@ -1555,9 +1540,9 @@ public class CPU
 				r[reg].left(1);
 				r[reg].setBit(0, prevBit0);
 				
-				setCA(prevBit7);
+				cc(CA, prevBit7);
 				flags("Z", 0, r[reg].get(), 0);
-				cc[HC].set(0);
+				cc(HC, 0);
 				
 				break;
 			}
@@ -1570,9 +1555,9 @@ public class CPU
 				r[reg].right(1);
 				r[reg].setBit(7, prevBit7);
 				
-				setCA(prevBit0);
+				cc(CA, prevBit0);
 				flags("Z", 0, r[reg].get(), 0);
-				cc[HC].set(0);
+				cc(HC, 0);
 				
 				break;
 			}
@@ -1592,8 +1577,8 @@ public class CPU
 				r[reg].setBit(7, prevReg.getBit(3));
 				
 				flags("Z", 0, r[reg].get(), 0);
-				cc[HC].set(0);
-				setCA(0);
+				cc(HC, 0);
+				cc(CA, 0);
 				
 				break;
 			}
@@ -1605,49 +1590,18 @@ public class CPU
 				r[reg].right(1);
 				r[reg].setBit(7, prevBit0);
 				
-				setCA(prevBit0);
+				cc(CA, prevBit0);
 				flags("Z", 0, r[reg].get(), 0);
-				cc[HC].set(0);
+				cc(HC, 0);
 				
 				break;
 			}
 		}
 	}
 	
-	void movRP(int index)
-	{
-		if (index == SP)
-		{
-			return;
-		}
-		
-		r[(index * 2)].set(rp[index].subByte(1));
-		r[(index * 2) + 1].set(rp[index].subByte(0));
-	}
-	
-	void movRP2(int index)
-	{
-		if (index == AF)
-		{
-			r[A].set(rp2[AF].subByte(1));
-			r[F].set(rp2[AF].subByte(0));
-			
-			setZ(r[F].getBit(7));
-			cc[NE].set(r[F].getBit(6));
-			cc[HC].set(r[F].getBit(5));
-			setCA(r[F].getBit(4));
-		}
-		
-		else
-		{
-			r[(index * 2)].set(rp2[index].subByte(1));
-			r[(index * 2) + 1].set(rp2[index].subByte(0));
-		}
-	}
-	
 	void updateMEMHL()
 	{
-		memory[rp[HL].get()].set(r[R_HL]);
+		memory[rp(HL).get()].set(r[R_HL]);
 	}
 	
 	void flags(String flags, int operation, int fnum, int snum)
@@ -1656,27 +1610,27 @@ public class CPU
 		{
 			case 0:										// ADD flags
 			{
-				cc[NE].set(0);
+				cc(NE, 0);
 				
 				if (flags.contains("Z"))
 				{
 					boolean zero = (fnum + snum) % 256 == 0;
 					
-					setZ(zero ? 1 : 0);
+					cc(Z, zero ? 1 : 0);
 				}
 				
 				if (flags.contains("CA"))
 				{
 					boolean carry = fnum + snum > 255;
 					
-					setCA(carry ? 1 : 0);
+					cc(CA, carry ? 1 : 0);
 				}
 				
 				if (flags.contains("HC"))
 				{
 					boolean hcarry = ((fnum & 0xF) + (snum & 0xF)) > 0xF;
 					
-					cc[HC].set(hcarry ? 1 : 0);
+					cc(HC, hcarry ? 1 : 0);
 				}
 				
 				break;
@@ -1684,27 +1638,27 @@ public class CPU
 			
 			case 1:										// SUB flags
 			{
-				cc[NE].set(1);
+				cc(NE, 1);
 				
 				if (flags.contains("Z"))
 				{
 					boolean zero = fnum - snum == 0;
 					
-					setZ(zero ? 1 : 0);
+					cc(Z, zero ? 1 : 0);
 				}
 				
 				if (flags.contains("CA"))
 				{
 					boolean carry = snum > fnum;
 					
-					setCA(carry ? 1 : 0);
+					cc(CA, carry ? 1 : 0);
 				}
 				
 				if (flags.contains("HC"))
 				{
 					boolean hcarry = (snum & 0xF) > (fnum & 0xF);
 					
-					cc[HC].set(hcarry ? 1 : 0);
+					cc(HC, hcarry ? 1 : 0);
 				}
 				
 				break;
@@ -1712,23 +1666,23 @@ public class CPU
 			
 			case 2:										// AND flags
 			{
-				cc[NE].set(0);
+				cc(NE, 0);
 				
 				if (flags.contains("Z"))
 				{
 					boolean zero = (fnum & snum) == 0;
 					
-					setZ(zero ? 1 : 0);
+					cc(Z, zero ? 1 : 0);
 				}
 				
 				if (flags.contains("CA"))
 				{
-					setCA(0);
+					cc(CA, 0);
 				}
 				
 				if (flags.contains("HC"))
 				{
-					cc[HC].set(1);
+					cc(HC, 1);
 				}
 				
 				break;
@@ -1736,23 +1690,23 @@ public class CPU
 			
 			case 3:										// XOR flags
 			{
-				cc[NE].set(0);
+				cc(NE, 0);
 				
 				if (flags.contains("Z"))
 				{
 					boolean zero = (fnum ^ snum) == 0;
 					
-					setZ(zero ? 1 : 0);
+					cc(Z, zero ? 1 : 0);
 				}
 				
 				if (flags.contains("CA"))
 				{
-					setCA(0);
+					cc(CA, 0);
 				}
 				
 				if (flags.contains("HC"))
 				{
-					cc[HC].set(0);
+					cc(HC, 0);
 				}
 				
 				break;
@@ -1760,23 +1714,23 @@ public class CPU
 			
 			case 4:										// OR flags
 			{
-				cc[NE].set(0);
+				cc(NE, 0);
 				
 				if (flags.contains("Z"))
 				{
 					boolean zero = (fnum | snum) == 0;
 					
-					setZ(zero ? 1 : 0);
+					cc(Z, zero ? 1 : 0);
 				}
 				
 				if (flags.contains("CA"))
 				{
-					setCA(0);
+					cc(CA, 0);
 				}
 				
 				if (flags.contains("HC"))
 				{
-					cc[HC].set(0);
+					cc(HC, 0);
 				}
 				
 				break;
@@ -1784,27 +1738,27 @@ public class CPU
 			
 			case 5:										// CP flags
 			{
-				cc[NE].set(1);
+				cc(NE, 1);
 				
 				if (flags.contains("Z"))
 				{
 					boolean zero = fnum - snum == 0;
 					
-					setZ(zero ? 1 : 0);
+					cc(Z, zero ? 1 : 0);
 				}
 				
 				if (flags.contains("CA"))
 				{
 					boolean carry = snum > fnum;
 					
-					setCA(carry ? 1 : 0);
+					cc(CA, carry ? 1 : 0);
 				}
 				
 				if (flags.contains("HC"))
 				{
 					boolean hcarry = (snum & 0xF) > (fnum & 0xF);
 					
-					cc[HC].set(hcarry ? 1 : 0);
+					cc(HC, hcarry ? 1 : 0);
 				}
 				
 				break;
@@ -1812,27 +1766,27 @@ public class CPU
 			
 			case 6:										// ADC flags
 			{
-				cc[NE].set(0);
+				cc(NE, 0);
 				
 				if (flags.contains("Z"))
 				{
 					boolean zero = (fnum + snum) % 256 == 0;
 					
-					setZ(zero ? 1 : 0);
+					cc(Z, zero ? 1 : 0);
 				}
 				
 				if (flags.contains("CA"))
 				{
 					boolean carry = fnum + snum > 255;
 					
-					setCA(carry ? 1 : 0);
+					cc(CA, carry ? 1 : 0);
 				}
 				
 				if (flags.contains("HC"))
 				{
-					boolean hcarry = (fnum & 0xF) + (snum & 0xF) + cc[C].get() > 0x0F;
+					boolean hcarry = (fnum & 0xF) + (snum & 0xF) + cc(C) > 0x0F;
 					
-					cc[HC].set(hcarry ? 1 : 0);
+					cc(HC, hcarry ? 1 : 0);
 				}
 				
 				break;
@@ -1840,27 +1794,27 @@ public class CPU
 			
 			case 7:										// SBC flags
 			{
-				cc[NE].set(0);
+				cc(NE, 0);
 				
 				if (flags.contains("Z"))
 				{
 					boolean zero = (fnum + snum) % 256 == 0;
 					
-					setZ(zero ? 1 : 0);
+					cc(Z, zero ? 1 : 0);
 				}
 				
 				if (flags.contains("CA"))
 				{
 					boolean carry = fnum + snum > 255;
 					
-					setCA(carry ? 1 : 0);
+					cc(CA, carry ? 1 : 0);
 				}
 				
 				if (flags.contains("HC"))
 				{
-					boolean hcarry = (snum & 0x0F) > ((fnum & 0x0F) - cc[C].get());
+					boolean hcarry = (snum & 0x0F) > ((fnum & 0x0F) - cc(C));
 					
-					cc[HC].set(hcarry ? 1 : 0);
+					cc(HC, hcarry ? 1 : 0);
 				}
 				
 				break;
@@ -1868,15 +1822,187 @@ public class CPU
 		}
 	}
 	
-	void setZ(int value)
+	UnsignedShort rp(int index)
 	{
-		cc[Z].set(value);
-		cc[NZ].set(value ^ 1);
+		UnsignedShort rp = new UnsignedShort();
+		
+		switch (index)
+		{
+			case 0:							// BC
+			{
+				rp.set(BitUtil.craftShort(r[B].get(), r[C].get()));
+				break;
+			}
+			
+			case 1:							// DE
+			{
+				rp.set(BitUtil.craftShort(r[D].get(), r[E].get()));
+				break;
+			}
+			
+			case 2:							// HL
+			{
+				rp.set(BitUtil.craftShort(r[H].get(), r[L].get()));
+				break;
+			}
+			
+			case 3:							// SP
+			{
+				rp.set(sp);
+				break;
+			}
+		}
+		
+		return rp;
 	}
 	
-	void setCA(int value)
+	void rp(int index, int value)
 	{
-		cc[CA].set(value);
-		cc[NCA].set(value ^ 1);
+		switch (index)
+		{
+			case 0:							// BC
+			{
+				r[B].set(BitUtil.subByte(1, value));
+				r[C].set(BitUtil.subByte(0, value));
+				break;
+			}
+			
+			case 1:							// DE
+			{
+				r[D].set(BitUtil.subByte(1, value));
+				r[E].set(BitUtil.subByte(0, value));
+				break;
+			}
+			
+			case 2:							// HL
+			{
+				r[H].set(BitUtil.subByte(1, value));
+				r[L].set(BitUtil.subByte(0, value));
+				break;
+			}
+			
+			case 3:							// SP
+			{
+				sp.set(value);
+				break;
+			}
+		}
+	}
+	
+	UnsignedShort rp2(int index)
+	{
+		UnsignedShort rp2 = new UnsignedShort();
+		
+		switch (index)
+		{
+			case 0:							// BC
+			
+			case 1:							// DE
+			
+			case 2:							// HL
+			{
+				rp2.set(rp(index));
+				break;
+			}
+			
+			case 3:							// AF
+			{
+				rp2.set(BitUtil.craftShort(r[A].get(), r[F].get()));
+				break;
+			}
+		}
+		
+		return rp2;
+	}
+	
+	void rp2(int index, int value)
+	{
+		switch (index)
+		{
+			case 0:							// BC
+			
+			case 1:							// DE
+			
+			case 2:							// HL
+			{
+				rp(index, value);
+				break;
+			}
+			
+			case 3:							// AF
+			{
+				r[A].set(BitUtil.subByte(1, value));
+				r[F].set(BitUtil.subByte(0, value));
+				break;
+			}
+		}
+	}
+	
+	int cc(int index)
+	{
+		switch (index)
+		{
+			case 0:							// NZ
+			{
+				return r[F].getBit(7) ^ 1;
+			}
+			
+			case 1:							// Z
+			{
+				return r[F].getBit(7);
+			}
+			
+			case 2:							// NCA
+			{
+				return r[F].getBit(4) ^ 1;
+			}
+			
+			case 3:							// CA
+			{
+				return r[F].getBit(4);
+			}
+			
+			case 4:							// NE
+			{
+				return r[F].getBit(6);
+			}
+			
+			case 5:							// HC
+			{
+				return r[F].getBit(5);
+			}
+		}
+		
+		return -1;
+	}
+	
+	void cc(int index, int value)
+	{
+		switch (index)
+		{
+			case 1:							// Z
+			{
+				r[F].setBit(7, value);
+				break;
+			}
+			
+			case 3:							// CA
+			{
+				r[F].setBit(4, value);
+				break;
+			}
+			
+			case 4:							// NE
+			{
+				r[F].setBit(6, value);
+				break;
+			}
+			
+			case 5:							// HC
+			{
+				r[F].setBit(5, value);
+				break;
+			}
+		}
 	}
 }
