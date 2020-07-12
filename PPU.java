@@ -185,8 +185,6 @@ public class PPU implements ActionListener
 		{
 			GB.cpu.run = false;
 			
-			while (!GB.cpu.cycleDone);
-			
 			SwingUtilities.updateComponentTreeUI(fc);
 			fc.setFileSelectionMode(JFileChooser.FILES_ONLY);
 			int fci = fc.showOpenDialog(null);
@@ -196,13 +194,12 @@ public class PPU implements ActionListener
 				
 				pause.setEnabled(true);
 				
-				GB.cpu.reset();
+				GB.cpu.init();
+				GB.cpu.initMemory();
 				GB.cpu.loadGame(rompath);
 				GB.cpu.loadBIOS();
 				
 				frame.setTitle("GrumpBoy - " + getROMTitle());
-				
-				GB.cpu.run = true;
 			}
 		}
 		

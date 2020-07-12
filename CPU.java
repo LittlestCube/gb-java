@@ -97,30 +97,21 @@ public class CPU
 	public CPU()
 	{
 		init();
-		reset();
+		initMemory();
 	}
 	
 	void init()
 	{
-		memory = new UnsignedByte[0x10000];
+		opcode = new UnsignedByte();
 		
-		for (int i = 0; i < memory.length; i++)
-		{
-			memory[i] = new UnsignedByte();
-		}
+		ime = false;
 		
-		r = new UnsignedByte[9];
-		
-		for (int i = 0; i < r.length; i++)
-		{
-			r[i] = new UnsignedByte();
-		}
+		clockt = 0;
+		clockm = 0;
 		
 		pc = new UnsignedShort();
 		
 		sp = new UnsignedShort();
-		
-		opcode = new UnsignedByte();
 		
 		x = new UnsignedByte();
 		y = new UnsignedByte();
@@ -131,24 +122,6 @@ public class CPU
 		d = new UnsignedByte();
 		n = new UnsignedByte();
 		nn = new UnsignedShort();
-	}
-	
-	void reset()
-	{
-		opcode.set(0);
-		
-		ime = false;
-		
-		clockt = 0;
-		clockm = 0;
-		
-		pc.set(0);
-		
-		sp.set(0);
-		
-		d.set(0);
-		n.set(0);
-		nn.set(0);
 		
 		biosDone = false;
 		
@@ -162,18 +135,26 @@ public class CPU
 		
 		ei = false;
 		
+		r = new UnsignedByte[9];
+		
 		run = false;
 		
 		for (int i = 0; i < r.length; i++)
 		{
-			r[i].set(0);
+			r[i] = new UnsignedByte();
 		}
+	}
+	
+	void initMemory()
+	{
+		memory = new UnsignedByte[0x10000];
 		
 		Random rand = new Random();
 		
 		for (int i = 0; i < memory.length; i++)
 		{
-			memory[i].set(rand.nextInt());
+			//memory[i] = new UnsignedByte(rand.nextInt());
+			memory[i] = new UnsignedByte();
 		}
 		
 		retainConstants();
@@ -439,8 +420,8 @@ public class CPU
 							
 							case 1:						// LD (nn), SP
 							{
-								memory[nn.get()].set(sp.subByte(1));
-								memory[nn.get() + 1].set(sp.subByte(0));
+								memory[nn.get()].set(sp.subByte(0));
+								memory[nn.get() + 1].set(sp.subByte(1));
 								
 								t += 20;
 								m += 5;
@@ -471,6 +452,12 @@ public class CPU
 								
 								t += 12;
 								m += 3;
+								
+								if (pc.get() > 0x100)
+								{
+									//stop = true;
+									//GB.ppu.debugWindow();
+								}
 								break;
 							}
 							
