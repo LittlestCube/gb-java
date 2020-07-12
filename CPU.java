@@ -431,8 +431,6 @@ public class CPU
 							
 							case 2:						// STOP
 							{
-								GB.ppu.debugWindow();
-								
 								System.out.println("W: STOP called");
 								
 								// TODO: get rid of all this and break when input detected
@@ -452,12 +450,6 @@ public class CPU
 								
 								t += 12;
 								m += 3;
-								
-								if (pc.get() > 0x100)
-								{
-									//stop = true;
-									//GB.ppu.debugWindow();
-								}
 								break;
 							}
 							
@@ -505,29 +497,7 @@ public class CPU
 							
 							case 1:						// ADD HL, rp[p]
 							{
-								// crazy flags for this one specific opcode
-								if ((rp(HL).get() & 0x7FF) + (rp(p.get()).get() & 0x7FF) > 0x7FF)
-								{
-									cc(HC, 1);
-								}
-								
-								else
-								{
-									cc(HC, 0);
-								}
-								
-								if (rp(HL).get() + rp(p.get()).get() > 0xFFFF)
-								{
-									cc(CA, 1);
-								}
-								
-								else
-								{
-									cc(CA, 0);
-								}
-								
-								cc(NE, 0);
-								// end crazy flags
+								flags("HC CA", 8, rp(HL).get(), rp(p.get()).get());
 								
 								rp(HL, rp(HL).get() + rp(p.get()).get());
 								
@@ -966,11 +936,10 @@ public class CPU
 							
 							case 5:						// ADD SP, d
 							{
-								int prevSP = sp.get();
-								rp(SP, rp(SP).get() + d.b);
-								
 								cc(Z, 0);
-								flags("HC CA", 0, prevSP, d.b);
+								flags("HC CA", 9, sp.get(), d.b);
+								
+								sp.add(d.b);
 								
 								t += 16;
 								m += 4;
@@ -992,13 +961,11 @@ public class CPU
 							{
 								int prevSP = sp.get();
 								
-								rp(SP, rp(SP).get() + d.b);
-								
-								rp(HL, rp(SP).get());
+								rp(HL, rp(SP).get() + d.b);
 								r[R_HL].set(memory[rp(HL).get()]);
 								
 								cc(Z, 0);
-								flags("HC CA", 0, prevSP, d.b);
+								flags("HC CA", 9, prevSP, d.b);
 								
 								t += 12;
 								m += 3;
@@ -1829,6 +1796,66 @@ public class CPU
 				if (flags.contains("CA"))
 				{
 					boolean carry = (snum + cc(CA)) > fnum;
+					
+					cc(CA, carry ? 1 : 0);
+				}
+				
+				break;
+			}
+			
+			case 8:										// ADD HL flags
+			{
+				if (flags.contains("Z"))
+				{
+					boolean zero = ((fnum + snum) % 256) == 0;
+					
+					cc(Z, zero ? 1 : 0);
+				}
+				
+				cc(NE, 0);
+				
+				if (flags.contains("HC"))
+				{
+					boolean hcarry = ((fnum & 0x7FF) + (snum & 0x7FF)) > 0x7FF;
+					
+					cc(HC, hcarry ? 1 : 0);
+				}
+				
+				if (flags.contains("CA"))
+				{
+					boolean carry = (fnum + snum) > 0xFFFF;
+					
+					cc(CA, carry ? 1 : 0);
+				}
+				
+				break;
+			}
+			
+			case 9:										// ADD SP, e8 flags
+			{
+				int finalSP = fnum + snum;
+				
+				int xorRes = (fnum ^ snum ^ finalSP);
+				
+				if (flags.contains("Z"))
+				{
+					boolean zero = ((fnum + snum) % 256) == 0;
+					
+					cc(Z, zero ? 1 : 0);
+				}
+				
+				cc(NE, 0);
+				
+				if (flags.contains("HC"))
+				{
+					boolean hcarry = (xorRes & 0x0010) != 0;
+					
+					cc(HC, hcarry ? 1 : 0);
+				}
+				
+				if (flags.contains("CA"))
+				{
+					boolean carry = (xorRes & 0x0100) != 0;
 					
 					cc(CA, carry ? 1 : 0);
 				}
