@@ -97,21 +97,30 @@ public class CPU
 	public CPU()
 	{
 		init();
-		initMemory();
+		reset();
 	}
 	
 	void init()
 	{
-		opcode = new UnsignedByte();
+		memory = new UnsignedByte[0x10000];
 		
-		ime = false;
+		for (int i = 0; i < memory.length; i++)
+		{
+			memory[i] = new UnsignedByte();
+		}
 		
-		clockt = 0;
-		clockm = 0;
+		r = new UnsignedByte[9];
+		
+		for (int i = 0; i < r.length; i++)
+		{
+			r[i] = new UnsignedByte();
+		}
 		
 		pc = new UnsignedShort();
 		
 		sp = new UnsignedShort();
+		
+		opcode = new UnsignedByte();
 		
 		x = new UnsignedByte();
 		y = new UnsignedByte();
@@ -122,6 +131,24 @@ public class CPU
 		d = new UnsignedByte();
 		n = new UnsignedByte();
 		nn = new UnsignedShort();
+	}
+	
+	void reset()
+	{
+		opcode.set(0);
+		
+		ime = false;
+		
+		clockt = 0;
+		clockm = 0;
+		
+		pc.set(0);
+		
+		sp.set(0);
+		
+		d.set(0);
+		n.set(0);
+		nn.set(0);
 		
 		biosDone = false;
 		
@@ -135,26 +162,18 @@ public class CPU
 		
 		ei = false;
 		
-		r = new UnsignedByte[9];
-		
 		run = false;
 		
 		for (int i = 0; i < r.length; i++)
 		{
-			r[i] = new UnsignedByte();
+			r[i].set(0);
 		}
-	}
-	
-	void initMemory()
-	{
-		memory = new UnsignedByte[0x10000];
 		
 		Random rand = new Random();
 		
 		for (int i = 0; i < memory.length; i++)
 		{
-			//memory[i] = new UnsignedByte(rand.nextInt());
-			memory[i] = new UnsignedByte();
+			memory[i].set(rand.nextInt());
 		}
 		
 		retainConstants();
@@ -295,7 +314,7 @@ public class CPU
 		{
 			ROM = Files.readAllBytes(Paths.get(filepath));
 			
-			for (int i = 0; i < 0x8000; i++)
+			for (int i = 0; i < 0x8000 && i < ROM.length; i++)
 			{
 				memory[i].set(ROM[i]);
 			}
@@ -431,6 +450,8 @@ public class CPU
 							
 							case 2:						// STOP
 							{
+								GB.ppu.debugWindow();
+								
 								System.out.println("W: STOP called");
 								
 								// TODO: get rid of all this and break when input detected
@@ -701,7 +722,9 @@ public class CPU
 							{
 								int prevBit7 = r[A].getBit(7);
 								
-								flags("Z HC", 0, 0, 0);
+								cc(Z, 0);
+								cc(NE, 0);
+								cc(HC, 0);
 								
 								r[A].left(1);
 								
@@ -718,7 +741,9 @@ public class CPU
 							{
 								int prevBit0 = r[A].getBit(0);
 								
-								flags("Z HC", 0, 0, 0);
+								cc(Z, 0);
+								cc(NE, 0);
+								cc(HC, 0);
 								
 								r[A].right(1);
 								
@@ -733,7 +758,9 @@ public class CPU
 							
 							case 2:						// RLA
 							{
-								flags("Z HC", 0, 0, 0);
+								cc(Z, 0);
+								cc(NE, 0);
+								cc(HC, 0);
 								
 								int prevBit7 = r[A].getBit(7);
 								
@@ -750,7 +777,9 @@ public class CPU
 							
 							case 3:						// RRA
 							{
-								flags("Z HC", 0, 0, 0);
+								cc(Z, 0);
+								cc(NE, 0);
+								cc(HC, 0);
 								
 								int prevBit0 = r[A].getBit(0);
 								
@@ -1539,10 +1568,8 @@ public class CPU
 			case 4:										// SLA
 			{
 				int prevBit7 = r[reg].getBit(7);
-				int prevBit0 = r[reg].getBit(0);
 				
 				r[reg].left(1);
-				r[reg].setBit(0, prevBit0);
 				
 				cc(CA, prevBit7);
 				flags("Z", 0, r[reg].get(), 0);
@@ -1553,11 +1580,9 @@ public class CPU
 			
 			case 5:										// SRA
 			{
-				int prevBit7 = r[reg].getBit(7);
 				int prevBit0 = r[reg].getBit(0);
 				
 				r[reg].right(1);
-				r[reg].setBit(7, prevBit7);
 				
 				cc(CA, prevBit0);
 				flags("Z", 0, r[reg].get(), 0);
@@ -1592,7 +1617,7 @@ public class CPU
 				int prevBit0 = r[reg].getBit(0);
 				
 				r[reg].right(1);
-				r[reg].setBit(7, prevBit0);
+				r[reg].setBit(7, 0);
 				
 				cc(CA, prevBit0);
 				flags("Z", 0, r[reg].get(), 0);
@@ -1616,7 +1641,7 @@ public class CPU
 			{
 				if (flags.contains("Z"))
 				{
-					boolean zero = (fnum + snum) % 256 == 0;
+					boolean zero = ((fnum + snum) % 256) == 0;
 					
 					cc(Z, zero ? 1 : 0);
 				}
@@ -1632,7 +1657,7 @@ public class CPU
 				
 				if (flags.contains("CA"))
 				{
-					boolean carry = fnum + snum > 255;
+					boolean carry = (fnum + snum) > 255;
 					
 					cc(CA, carry ? 1 : 0);
 				}
@@ -1744,7 +1769,7 @@ public class CPU
 			{
 				if (flags.contains("Z"))
 				{
-					boolean zero = fnum - snum == 0;
+					boolean zero = (fnum - snum) == 0;
 					
 					cc(Z, zero ? 1 : 0);
 				}
@@ -1788,7 +1813,7 @@ public class CPU
 				
 				if (flags.contains("CA"))
 				{
-					boolean carry = fnum + snum + cc(CA) > 255;
+					boolean carry = (fnum + snum + cc(CA)) > 255;
 					
 					cc(CA, carry ? 1 : 0);
 				}
