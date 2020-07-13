@@ -7,10 +7,10 @@ import java.nio.file.Paths;
 import java.io.File;
 import java.io.IOException;
 
-import java.util.Random;
-
 public class CPU
 {
+	static MMU mmu;
+	
 	byte[] ROM;
 	
 	UnsignedByte opcode;
@@ -97,7 +97,7 @@ public class CPU
 	public CPU()
 	{
 		init();
-		initMemory();
+		initMMU();
 	}
 	
 	void init()
@@ -145,42 +145,19 @@ public class CPU
 		}
 	}
 	
-	void initMemory()
+	void initMMU()
 	{
-		memory = new UnsignedByte[0x10000];
+		mmu = new MMU();
 		
-		Random rand = new Random();
-		
-		for (int i = 0; i < memory.length; i++)
-		{
-			//memory[i] = new UnsignedByte(rand.nextInt());
-			memory[i] = new UnsignedByte();
-		}
-		
-		retainConstants();
+		retainF();
 	}
 	
-	void retainConstants()
+	void retainF()
 	{
 		r[F].setBit(3, 0);
 		r[F].setBit(2, 0);
 		r[F].setBit(1, 0);
 		r[F].setBit(0, 0);
-		
-		memory[IE].setBit(5, 1);
-		memory[IE].setBit(6, 1);
-		memory[IE].setBit(7, 1);
-		
-		memory[IF].setBit(5, 1);
-		memory[IF].setBit(6, 1);
-		memory[IF].setBit(7, 1);
-		
-		memory[0xFF02].setBit(1, 1);
-		memory[0xFF02].setBit(2, 1);
-		memory[0xFF02].setBit(3, 1);
-		memory[0xFF02].setBit(4, 1);
-		memory[0xFF02].setBit(5, 1);
-		memory[0xFF02].setBit(6, 1);
 	}
 	
 	void debug()
@@ -196,6 +173,7 @@ public class CPU
 			debugging += String.format("E: 0x%02X\n", r[E].get());
 			debugging += String.format("H: 0x%02X\n", r[H].get());
 			debugging += String.format("L: 0x%02X\n", r[L].get());
+			debugging += String.format("(HL): 0x%02X\n", r[R_HL].get());
 			debugging += String.format("F: 0x%02X\n", r[F].get());
 			debugging += String.format("\nrp2 AF: 0x%04X\n", rp2(AF).get());
 			debugging += String.format("rp2 BC: 0x%04X\n", rp2(BC).get());
@@ -316,9 +294,9 @@ public class CPU
 			return;
 		}
 		
-		retainConstants();
+		retainF();
 		
-		if (memory[IE].get() != 0xE0 && memory[IF].get() != 0xE0 && halt)
+		if (mmu.read(IE).get() != 0xE0 && mmu.read(IF).get() != 0xE0 && halt)
 		{
 			halt = false;
 			
@@ -328,15 +306,15 @@ public class CPU
 		
 		if (ime)
 		{
-			if (memory[IE].get() != 0xE0 && memory[IF].get() != 0xE0)
+			if (mmu.read(IE).get() != 0xE0 && mmu.read(IF).get() != 0xE0)
 			{
 				for (int i = 0; i < 5; i++)
 				{
-					if (memory[IE].getBit(i) == 1 && memory[IF].getBit(i) == 1)
+					if (mmu.read(IE).getBit(i) == 1 && mmu.read(IF).getBit(i) == 1)
 					{
 						call(0x40 + (0x8 * i));						// CALL range 0x0040-0x0060 (if interrupt bit 0 `JP 0x0040`, if interrupt bit 1 `JP 0x0048`, etc.)
 						
-						memory[IF].setBit(i, 0);
+						mmu.writeBit(IF, i, 0);
 						
 						ime = false;
 						
@@ -358,39 +336,39 @@ public class CPU
 			ei = false;
 		}
 		
-		opcode.set(memory[pc.get()]);
+		opcode.set(mmu.read(pc.get()));
 		
 		if (haltbug)
 		{
-			d.set(memory[pc.get()]);
-			n.set(memory[pc.get()]);
-			nn.craftShort(memory[pc.get() + 1].b, n.b);
+			d.set(mmu.read(pc.get()));
+			n.set(mmu.read(pc.get()));
+			nn.craftShort(mmu.read(pc.get() + 1).b, n.b);
 			haltbug = false;
 			pcForHaltBug = pc.get();
 		}
 		
 		else if (pcForHaltBug == pc.get() - 1)
 		{
-			opcode.set(memory[pc.get() - 1]);
+			opcode.set(mmu.read(pc.get() - 1));
 			
-			d.set(memory[pc.get()]);
-			n.set(memory[pc.get()]);
-			nn.craftShort(memory[pc.get() + 1].b, n.b);
+			d.set(mmu.read(pc.get()));
+			n.set(mmu.read(pc.get()));
+			nn.craftShort(mmu.read(pc.get() + 1).b, n.b);
 			
 			pcForHaltBug = -2;
 		}
 		
 		else
 		{
-			d.set(memory[pc.get() + 1]);
-			n.set(memory[pc.get() + 1]);
+			d.set(mmu.read(pc.get() + 1));
+			n.set(mmu.read(pc.get() + 1));
 			
-			nn.craftShort(memory[pc.get() + 2].b, memory[pc.get() + 1].b);
+			nn.craftShort(mmu.read(pc.get() + 2).b, mmu.read(pc.get() + 1).b);
 			
 			pcForHaltBug = -2;
 		}
 		
-		r[R_HL].set(memory[rp(HL).get()]);
+		r[R_HL].set(mmu.read(rp(HL).get()));
 		
 		t = 0;
 		m = 0;
@@ -420,8 +398,8 @@ public class CPU
 							
 							case 1:						// LD (nn), SP
 							{
-								memory[nn.get()].set(sp.subByte(0));
-								memory[nn.get() + 1].set(sp.subByte(1));
+								mmu.write(nn.get(), sp.subByte(0));
+								mmu.write(nn.get() + 1, sp.subByte(1));
 								
 								t += 20;
 								m += 5;
@@ -541,7 +519,7 @@ public class CPU
 									}
 								}
 								
-								memory[trueMemP].set(r[A]);
+								mmu.write(trueMemP, r[A].get());
 								
 								t += 8;
 								m += 2;
@@ -573,7 +551,7 @@ public class CPU
 									}
 								}
 								
-								r[A].set(memory[trueMemP]);
+								r[A].set(mmu.read(trueMemP));
 								
 								t += 8;
 								m += 2;
@@ -843,7 +821,7 @@ public class CPU
 					
 					else
 					{
-						if (memory[IE].get() == 0xE0 || memory[IF].get() == 0xE0)
+						if (mmu.read(IE).get() == 0xE0 || mmu.read(IF).get() == 0xE0)
 						{
 							halt = true;
 						}
@@ -926,7 +904,7 @@ public class CPU
 							
 							case 4:						// LD (0xFF00 + n), A
 							{
-								memory[0xFF00 + n.get()].set(r[A]);
+								mmu.write(0xFF00 + n.get(), r[A].get());
 								
 								t += 12;
 								m += 3;
@@ -949,7 +927,7 @@ public class CPU
 							
 							case 6:						// LD A, (0xFF00 + n)
 							{
-								r[A].set(memory[0xFF00 + n.get()]);
+								r[A].set(mmu.read(0xFF00 + n.get()));
 								
 								t += 12;
 								m += 3;
@@ -962,7 +940,6 @@ public class CPU
 								int prevSP = sp.get();
 								
 								rp(HL, rp(SP).get() + d.b);
-								r[R_HL].set(memory[rp(HL).get()]);
 								
 								cc(Z, 0);
 								flags("HC CA", 9, prevSP, d.b);
@@ -1071,7 +1048,7 @@ public class CPU
 							
 							case 4:						// LD (0xFF00 + C), A
 							{
-								memory[0xFF00 + r[C].get()].set(r[A]);
+								mmu.write(0xFF00 + r[C].get(), r[A].get());
 								
 								t += 8;
 								m += 2;
@@ -1081,7 +1058,7 @@ public class CPU
 							
 							case 5:						// LD (nn), A
 							{
-								memory[nn.get()].set(r[A]);
+								mmu.write(nn.get(), r[A].get());
 								
 								t += 16;
 								m += 4;
@@ -1091,7 +1068,7 @@ public class CPU
 							
 							case 6:						// LD A, (0xFF00 + C)
 							{
-								r[A].set(memory[0xFF00 + r[C].get()]);
+								r[A].set(mmu.read(0xFF00 + r[C].get()));
 								
 								t += 8;
 								m += 2;
@@ -1101,7 +1078,7 @@ public class CPU
 							
 							case 7:						// LD A, (nn)
 							{
-								r[A].set(memory[nn.get()]);
+								r[A].set(mmu.read(nn.get()));
 								
 								t += 8;
 								m += 2;
@@ -1338,16 +1315,16 @@ public class CPU
 	{
 		rp(SP, rp(SP).get() - 2);
 		
-		memory[sp.get()].set(pc.subByte(0));
-		memory[sp.get() + 1].set(pc.subByte(1));
+		mmu.write(sp.get(), pc.subByte(0));
+		mmu.write(sp.get() + 1, pc.subByte(1));
 		
 		pc.set(address);
 	}
 	
 	void ret()
 	{
-		pc.setByte(0, memory[sp.get()].get());
-		pc.setByte(1, memory[sp.get() + 1].get());
+		pc.setByte(0, mmu.read(sp.get()).get());
+		pc.setByte(1, mmu.read(sp.get() + 1).get());
 		
 		rp(SP, rp(SP).get() + 2);
 	}
@@ -1356,13 +1333,13 @@ public class CPU
 	{
 		rp(SP, rp(SP).get() - 2);
 		
-		memory[sp.get()].set(BitUtil.subByte(0, value));
-		memory[sp.get() + 1].set(BitUtil.subByte(1, value));
+		mmu.write(sp.get(), BitUtil.subByte(0, value));
+		mmu.write(sp.get() + 1, BitUtil.subByte(1, value));
 	}
 	
 	short pop()
 	{
-		short stackVal = BitUtil.craftShort(memory[sp.get() + 1].get(), memory[sp.get()].get());
+		short stackVal = BitUtil.craftShort(mmu.read(sp.get() + 1).get(), mmu.read(sp.get()).get());
 		
 		rp(SP, rp(SP).get() + 2);
 		
@@ -1584,7 +1561,7 @@ public class CPU
 	
 	void updateMEMHL()
 	{
-		memory[rp(HL).get()].set(r[R_HL]);
+		mmu.write(rp(HL).get(), r[R_HL].get());
 	}
 	
 	void flags(String flags, int operation, int fnum, int snum)

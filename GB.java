@@ -34,11 +34,11 @@ public class GB
 			{
 				while (cpu.run)
 				{
-					if (cpu.memory[0xFF02].get() == 0xFF)
+					if (cpu.mmu.read(0xFF02).get() == 0xFF)
 					{
 						System.out.print((char) cpu.memory[0xFF01].get());
 						
-						cpu.memory[0xFF02].set(0x7E);
+						cpu.mmu.write(0xFF02, 0x7E);
 					}
 					
 					if (cpu.pc.get() == 0x100)
