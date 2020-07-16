@@ -7,13 +7,13 @@ public class MMU
 {
 	public MMU()
 	{
-		GB.cpu.memory = new UnsignedByte[0x10000];
-		
 		resetMemory();
 	}
 	
 	public void resetMemory()
 	{
+		GB.cpu.memory = new UnsignedByte[0x10000];
+		
 		Random rand = new Random();
 		
 		for (int i = 0; i < GB.cpu.memory.length; i++)

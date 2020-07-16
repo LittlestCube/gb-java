@@ -195,7 +195,7 @@ public class PPU implements ActionListener
 				pause.setEnabled(true);
 				
 				GB.cpu.init();
-				GB.cpu.mmu.resetMemory();
+				GB.cpu.initMMU();
 				GB.cpu.loadGame(rompath);
 				GB.cpu.loadBIOS();
 				

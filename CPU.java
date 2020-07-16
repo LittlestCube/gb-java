@@ -49,7 +49,7 @@ public class CPU
 	
 	boolean ei;
 	
-	static UnsignedByte memory[];
+	UnsignedByte memory[];
 	
 	boolean run;
 	
@@ -97,7 +97,6 @@ public class CPU
 	public CPU()
 	{
 		init();
-		initMMU();
 	}
 	
 	void init()

@@ -12,6 +12,7 @@ public class GB
 	
 	static CPU cpu;
 	static PPU ppu;
+	static Timer timer = new Timer();
 	
 	static int millisleeps;
 	
@@ -34,11 +35,12 @@ public class GB
 			{
 				while (cpu.run)
 				{
+					// (temporary code) print results of blargg's test ROMs
 					if (cpu.mmu.read(0xFF02).get() == 0xFF)
 					{
 						System.out.print((char) cpu.memory[0xFF01].get());
 						
-						cpu.mmu.write(0xFF02, 0x7E);
+						cpu.mmu.write(0xFF02, 0x00);
 					}
 					
 					if (cpu.pc.get() == 0x100)
@@ -51,6 +53,7 @@ public class GB
 					Thread.sleep(millisleeps);
 					
 					cpu.cycle();
+					timer.clock(cpu.t);
 				}
 			}
 		}
