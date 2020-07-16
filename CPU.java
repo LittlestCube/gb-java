@@ -47,7 +47,7 @@ public class CPU
 	boolean haltbug;
 	int pcForHaltBug;
 	
-	boolean ei;
+	int ei;
 	
 	UnsignedByte memory[];
 	
@@ -132,7 +132,7 @@ public class CPU
 		haltbug = false;
 		pcForHaltBug = -2;
 		
-		ei = false;
+		ei = -1;
 		
 		r = new UnsignedByte[9];
 		
@@ -303,6 +303,17 @@ public class CPU
 			m += 1;
 		}
 		
+		if (ei == 0)
+		{
+			ime = true;
+			ei = -1;
+		}
+		
+		else if (ei > 0)
+		{
+			ei--;
+		}
+		
 		if (ime)
 		{
 			if (mmu.read(IE).get() != 0xE0 && mmu.read(IF).get() != 0xE0)
@@ -327,12 +338,6 @@ public class CPU
 		if (halt)
 		{
 			return;
-		}
-		
-		if (ei)
-		{
-			ime = true;
-			ei = false;
 		}
 		
 		opcode.set(mmu.read(pc.get()));
@@ -982,7 +987,7 @@ public class CPU
 									
 									case 1:				// RETI
 									{
-										ei = true;
+										ei = 1;
 										
 										ret();
 										
@@ -1186,6 +1191,7 @@ public class CPU
 							case 6:						// DI
 							{
 								ime = false;
+								ei = -1;
 								
 								t += 4;
 								m += 1;
@@ -1195,7 +1201,7 @@ public class CPU
 							
 							case 7:						// EI
 							{
-								ei = true;
+								ei = 1;
 								
 								t += 4;
 								m += 1;

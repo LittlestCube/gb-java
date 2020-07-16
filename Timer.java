@@ -10,7 +10,7 @@ public class Timer
 	
 	int lastAND;
 	
-	int remainingClocks;
+	int waitClocks;
 	
 	public Timer()
 	{
@@ -26,69 +26,86 @@ public class Timer
 		
 		lastAND = -1;
 		
-		remainingClocks = 0;
+		waitClocks = 0;
 	}
 	
 	public void clock(int clocks)
 	{
+		TMA();
+		TAC();
 		
+		clocks = waitClocks(clocks);
 		
-		if (div.get() + clocks < 0xFF)
+		if (waitClocks == 0)
 		{
-			clocks = overflow(clocks);
+			TIMA(tma.get());
+			waitClocks = -1;
+			GB.cpu.mmu.writeBit(0xFF0F, 2, 1);
 		}
 		
-		for (int i = 0; i < clocks; i++)
+		if (waitClocks == -1)
 		{
-			div.add(1);
-			
-			int andResult = tac.getBit(2) & div.getBit(TACVal());
-			
-			if (lastAND == 1 && andResult == 0)
+			if (div.get() + clocks < 0xFF)
 			{
-				tima.add(1);
+				clocks = overflow(clocks);
 			}
 			
-			lastAND = andResult;
+			for (int i = 0; i < clocks; i++)
+			{
+				DIV(div.get() + 1);
+				
+				int andResult = tac.getBit(2) & div.getBit(TACVal());
+				
+				if (lastAND == 1 && andResult == 0)
+				{
+					TIMA(tima.get() + 1);
+				}
+				
+				lastAND = andResult;
+			}
 		}
 	}
 	
 	int overflow(int clocks)
 	{
-		remainingClocks = 4;
+		waitClocks = 4;
 		
 		div.set(0x00);
 		
-		while (clocks > 0)
+		clocks = waitClocks(clocks);
+		
+		return clocks;
+	}
+	
+	int waitClocks(int clocks)
+	{
+		while (waitClocks > 0 && clocks > 0)
 		{
-			remainingClocks--;
+			waitClocks--;
 			clocks--;
 		}
 		
 		return clocks;
 	}
 	
-	void remainingClocks(int clocks)
+	void DIV(int newDiv)
 	{
-		
-	}
-	
-	void writeDIV()
-	{
+		div.set(newDiv);
 		GB.cpu.mmu.write(0xFF04, div.subByte(1));
 	}
 	
-	void writeTIMA()
+	void TIMA(int newTima)
 	{
+		tima.set(newTima);
 		GB.cpu.mmu.write(0xFF05, tima.get());
 	}
 	
-	void readTMA()
+	void TMA()
 	{
 		tma.set(GB.cpu.mmu.read(0xFF06));
 	}
 	
-	void readTAC()
+	void TAC()
 	{
 		tac.set(GB.cpu.mmu.read(0xFF07));
 	}
