@@ -12,7 +12,7 @@ public class GB
 	
 	static CPU cpu;
 	static PPU ppu;
-	static Timer timer = new Timer();
+	static Timer timer;
 	
 	static int millisleeps;
 	
@@ -24,6 +24,10 @@ public class GB
 		ram = false;
 		
 		cpu = new CPU();
+		
+		cpu.initMMU();
+		
+		timer = new Timer();
 		
 		ppu = new PPU();
 		
@@ -57,5 +61,12 @@ public class GB
 				}
 			}
 		}
+	}
+	
+	public static void reset()
+	{
+		cpu.init();
+		cpu.initMMU();
+		timer.init();
 	}
 }

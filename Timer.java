@@ -8,8 +8,16 @@ public class Timer
 	UnsignedByte tma;
 	UnsignedByte tac;
 	
+	static final int DIV = 0xFF04;
+	static final int TIMA = 0xFF05;
+	static final int TMA = 0xFF06;
+	static final int TAC = 0xFF07;
+	
 	int lastAND;
 	
+	int lastTIMA;
+	
+	int clocks;
 	int waitClocks;
 	
 	public Timer()
@@ -26,122 +34,158 @@ public class Timer
 		
 		lastAND = -1;
 		
-		waitClocks = 0;
+		lastTIMA = -1;
+		
+		clocks = 0;
+		waitClocks = -1;
 	}
 	
-	public void clock(int clocks)
+	public void clock(int newClocks)
 	{
-		TMA();
-		TAC();
+		clocks += newClocks;
 		
-		clocks = waitClocks(clocks);
-		
-		if (waitClocks == 0)
-		{
-			TIMA(tma.get());
-			waitClocks = -1;
-			GB.cpu.mmu.writeBit(0xFF0F, 2, 1);
-		}
+		readTIMA();
+		readTMA();
+		readTAC();
 		
 		if (waitClocks == -1)
 		{
-			if (div.get() + clocks < 0xFF)
+			while (clocks > 0)
 			{
-				clocks = overflow(clocks);
-			}
-			
-			for (int i = 0; i < clocks; i++)
-			{
-				DIV(div.get() + 1);
+				div.add(1);
+				writeDIV();
 				
 				int andResult = tac.getBit(2) & div.getBit(TACVal());
 				
 				if (lastAND == 1 && andResult == 0)
 				{
-					TIMA(tima.get() + 1);
+					if ((tima.get() + 1) > 0xFF)
+					{
+						overflow();
+						waitClocks();
+						
+						if (clocks > 0)
+						{
+							continue;
+						}
+						
+						else
+						{
+							return;
+						}
+					}
+					
+					tima.add(1);
+					writeTIMA();
 				}
 				
 				lastAND = andResult;
+				
+				clocks--;
+			}
+		}
+		
+		else if (waitClocks == 0)
+		{
+			GB.cpu.mmu.writeBit(CPU.IF, 2, 1);
+			
+			tima.set(tma.get());
+			writeTIMA();
+			
+			waitClocks = -1;
+		}
+		
+		else if (waitClocks > 0)
+		{
+			waitClocks();
+			
+			if (clocks > 0)
+			{
+				clock(0);
 			}
 		}
 	}
 	
-	int overflow(int clocks)
+	void overflow()
 	{
 		waitClocks = 4;
 		
-		div.set(0x00);
-		
-		clocks = waitClocks(clocks);
-		
-		return clocks;
+		tima.set(0x00);
+		writeTIMA();
 	}
 	
-	int waitClocks(int clocks)
+	void waitClocks()
 	{
 		while (waitClocks > 0 && clocks > 0)
 		{
+			div.add(1);
+			writeDIV();
+			
 			waitClocks--;
 			clocks--;
 		}
-		
-		return clocks;
 	}
 	
-	void DIV(int newDiv)
+	void writeDIV()
 	{
-		div.set(newDiv);
 		GB.cpu.mmu.write(0xFF04, div.subByte(1));
 	}
 	
-	void TIMA(int newTima)
+	void readTIMA()
 	{
-		tima.set(newTima);
+		tima.set(GB.cpu.memory[0xFF05].get());
+	}
+	
+	void writeTIMA()
+	{
 		GB.cpu.mmu.write(0xFF05, tima.get());
 	}
 	
-	void TMA()
+	void readTMA()
 	{
-		tma.set(GB.cpu.mmu.read(0xFF06));
+		tma.set(GB.cpu.memory[0xFF06].get());
 	}
 	
-	void TAC()
+	void readTAC()
 	{
-		tac.set(GB.cpu.mmu.read(0xFF07));
+		tac.set(GB.cpu.memory[0xFF07].get());
 	}
 	
 	int TACVal()
 	{
 		UnsignedByte tacval = new UnsignedByte();
 		
-		tacval.setBit(0, tac.getBit(0));
-		tacval.setBit(1, tac.getBit(1));
+		tacval.set(tac.get() & 0x03);
 		
-		int returnBit = 0;
+		int retPos = 0;
 		
 		switch (tacval.get())
 		{
 			case 0:
 			{
-				returnBit = 9;
+				retPos = 9;
+				break;
 			}
 			
 			case 1:
 			{
-				returnBit = 3;
+				retPos = 3;
+				break;
 			}
 			
 			case 2:
 			{
-				returnBit = 5;
+				retPos = 5;
+				break;
 			}
 			
 			case 3:
 			{
-				returnBit = 7;
+				retPos = 7;
+				break;
 			}
 		}
 		
-		return returnBit;
+		return retPos;
 	}
 }

@@ -47,50 +47,50 @@ public class CPU
 	boolean haltbug;
 	int pcForHaltBug;
 	
-	int ei;
+	boolean ei;
 	
 	UnsignedByte memory[];
 	
 	boolean run;
 	
-	final int IE = 0xFFFF;
-	final int IF = 0xFF0F;
+	static final int IE = 0xFFFF;
+	static final int IF = 0xFF0F;
 	
 	UnsignedByte r[];
 	
-	final int A = 7;
-	final int B = 0;
-	final int C = 1;
-	final int D = 2;
-	final int E = 3;
-	final int H = 4;
-	final int L = 5;
-	final int R_HL = 6;
-	final int F = 8;
+	static final int A = 7;
+	static final int B = 0;
+	static final int C = 1;
+	static final int D = 2;
+	static final int E = 3;
+	static final int H = 4;
+	static final int L = 5;
+	static final int R_HL = 6;
+	static final int F = 8;
 	
-	final int NZ = 0;
-	final int Z = 1;
-	final int NCA = 2;
-	final int CA = 3;
-	final int NE = 4;
-	final int HC = 5;
+	static final int NZ = 0;
+	static final int Z = 1;
+	static final int NCA = 2;
+	static final int CA = 3;
+	static final int NE = 4;
+	static final int HC = 5;
 	
 	// for use with the flags() method
-	final int AND = 2;
-	final int OR = 3;
-	final int XOR = 4;
-	final int CP = 5;
+	static final int AND = 2;
+	static final int OR = 3;
+	static final int XOR = 4;
+	static final int CP = 5;
 	
 	// for use with either rp() or rp2()
-	final int BC = 0;
-	final int DE = 1;
-	final int HL = 2;
+	static final int BC = 0;
+	static final int DE = 1;
+	static final int HL = 2;
 	
 	// for use with rp()
-	final int SP = 3;
+	static final int SP = 3;
 	
 	// for use with rp2()
-	final int AF = 3;
+	static final int AF = 3;
 	
 	String debugging;
 	
@@ -132,7 +132,7 @@ public class CPU
 		haltbug = false;
 		pcForHaltBug = -2;
 		
-		ei = -1;
+		ei = false;
 		
 		r = new UnsignedByte[9];
 		
@@ -288,6 +288,9 @@ public class CPU
 	{
 		cycleDone = false;
 		
+		t = 0;
+		m = 0;
+		
 		if (stop)
 		{
 			return;
@@ -301,17 +304,6 @@ public class CPU
 			
 			t += 4;
 			m += 1;
-		}
-		
-		if (ei == 0)
-		{
-			ime = true;
-			ei = -1;
-		}
-		
-		else if (ei > 0)
-		{
-			ei--;
 		}
 		
 		if (ime)
@@ -335,8 +327,17 @@ public class CPU
 			}
 		}
 		
+		if (ei)
+		{
+			ime = true;
+			ei = false;
+		}
+		
 		if (halt)
 		{
+			clockt += t += 4;
+			clockt += m += 1;
+			
 			return;
 		}
 		
@@ -373,9 +374,6 @@ public class CPU
 		}
 		
 		r[R_HL].set(mmu.read(rp(HL).get()));
-		
-		t = 0;
-		m = 0;
 		
 		debug();
 		ram();
@@ -825,7 +823,7 @@ public class CPU
 					
 					else
 					{
-						if (mmu.read(IE).get() == 0xE0 || mmu.read(IF).get() == 0xE0)
+						if ((mmu.read(IE).get() & mmu.read(IF).get() & 0x1F) == 0)
 						{
 							halt = true;
 						}
@@ -987,7 +985,7 @@ public class CPU
 									
 									case 1:				// RETI
 									{
-										ei = 1;
+										ime = true;	
 										
 										ret();
 										
@@ -1191,7 +1189,7 @@ public class CPU
 							case 6:						// DI
 							{
 								ime = false;
-								ei = -1;
+								ei = false;
 								
 								t += 4;
 								m += 1;
@@ -1201,7 +1199,7 @@ public class CPU
 							
 							case 7:						// EI
 							{
-								ei = 1;
+								ei = true;
 								
 								t += 4;
 								m += 1;

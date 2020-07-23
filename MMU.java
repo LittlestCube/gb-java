@@ -10,6 +10,17 @@ public class MMU
 		resetMemory();
 	}
 	
+	public void initValues()
+	{
+		write(CPU.IE, 0x00);
+		write(CPU.IF, 0x00);
+		
+		write(Timer.DIV, 0x00);
+		write(Timer.TIMA, 0x00);
+		write(Timer.TMA, 0x00);
+		write(Timer.TAC, 0x00);
+	}
+	
 	public void resetMemory()
 	{
 		GB.cpu.memory = new UnsignedByte[0x10000];
@@ -18,8 +29,11 @@ public class MMU
 		
 		for (int i = 0; i < GB.cpu.memory.length; i++)
 		{
-			GB.cpu.memory[i] = new UnsignedByte(rand.nextInt());
+			//GB.cpu.memory[i] = new UnsignedByte(rand.nextInt());
+			GB.cpu.memory[i] = new UnsignedByte();
 		}
+		
+		initValues();
 	}
 	
 	public UnsignedByte read(int offset)
@@ -35,6 +49,8 @@ public class MMU
 	
 	public void write(int offset, int value)
 	{
+		writeEffects(offset, value);
+		
 		GB.cpu.memory[offset].set(value);
 	}
 	
@@ -58,9 +74,9 @@ public class MMU
 				break;
 			}
 			
-			case 0xFFFF:
+			case CPU.IE:
 			
-			case 0xFF0F:
+			case CPU.IF:
 			{
 				value.setBit(5, 1);
 				value.setBit(6, 1);
@@ -70,5 +86,16 @@ public class MMU
 		}
 		
 		return value;
+	}
+	
+	void writeEffects(int offset, int value)
+	{
+		switch (offset)
+		{
+			case 0xFF04:
+			{
+				value = 0;
+			}
+		}
 	}
 }
