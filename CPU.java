@@ -39,6 +39,7 @@ public class CPU
 	
 	boolean biosDone;
 	
+	boolean firstCycle;
 	boolean cycleDone;
 	
 	boolean stop;
@@ -124,6 +125,7 @@ public class CPU
 		
 		biosDone = false;
 		
+		firstCycle = true;
 		cycleDone = true;
 		
 		stop = false;
@@ -296,6 +298,16 @@ public class CPU
 			return;
 		}
 		
+		/*if (firstCycle)
+		{
+			firstCycle = false;
+			
+			clockt += t += 4;
+			clockt += m += 1;
+			
+			return;
+		}*/
+		
 		retainF();
 		
 		if (mmu.read(IE).get() != 0xE0 && mmu.read(IF).get() != 0xE0 && halt)
@@ -338,6 +350,7 @@ public class CPU
 			clockt += t += 4;
 			clockt += m += 1;
 			
+			cycleDone = true;
 			return;
 		}
 		
@@ -1082,8 +1095,8 @@ public class CPU
 							{
 								r[A].set(mmu.read(nn.get()));
 								
-								t += 8;
-								m += 2;
+								t += 16;
+								m += 4;
 								pc.add(3);
 								break;
 							}

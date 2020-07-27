@@ -56,7 +56,11 @@ public class MMU
 	
 	public void writeBit(int offset, int position, int value)
 	{
-		GB.cpu.memory[offset].setBit(position, value);
+		UnsignedByte ub = read(offset);
+		
+		ub.setBit(position, value);
+		
+		write(offset, ub.get());
 	}
 	
 	UnsignedByte retainConstants(int offset, UnsignedByte value)
