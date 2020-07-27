@@ -39,6 +39,11 @@ public class GB
 			{
 				while (cpu.run)
 				{
+					if (cpu.pc.get() > 0x100)
+					{
+						ppu.updateTileWindow();
+					}
+					
 					// (temporary code) print results of blargg's test ROMs
 					if (cpu.mmu.read(0xFF02).get() == 0xFF)
 					{

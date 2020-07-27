@@ -29,7 +29,11 @@ import java.awt.image.BufferedImage;
 
 public class PPU implements ActionListener
 {
+	TileSet tileset;
+	Palette BGP;
+	
 	JFrame frame;
+	JFrame tileFrame;
 	JFrame debugFrame;
 	JFrame ramFrame;
 	JMenuBar bar;
@@ -52,10 +56,10 @@ public class PPU implements ActionListener
 	
 	String rompath = "";
 	
-	final int w = 160;
-	final int h = 144;
+	final static int w = 160;
+	final static int h = 144;
 	
-	final int scale = 4;
+	final static int scale = 4;
 	
 	public PPU()
 	{
@@ -64,6 +68,8 @@ public class PPU implements ActionListener
 	
 	public void init()
 	{
+		BGP = new Palette(0xFF47);
+		
 		fc = new JFileChooser();
 		
 		frame = new JFrame("GrumpBoy");
@@ -82,14 +88,20 @@ public class PPU implements ActionListener
 		ram.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_V, ActionEvent.CTRL_MASK));
 		pause.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_P, ActionEvent.CTRL_MASK));
 		
-		byte[] off = new byte[w * h];
+		int off[] = new int[w * h];
 		
 		for (int i = 0; i < off.length; i++)
 		{
-			off[i] = Palette.OFF;
+			off[i] = BGP.color(Palette.OFF);
 		}
 		
-		display = getDisplay(off);
+		display = PixelOps.getDisplay(off);
+		
+		tileset = new TileSet();
+		
+		tileset.setPalettes(BGP);
+		
+		tileWindow();
 		
 		JLabel item = new JLabel(new ImageIcon(display));
 		frame.add(item);
@@ -118,27 +130,24 @@ public class PPU implements ActionListener
 		frame.setVisible(true);
 	}
 	
-	BufferedImage getDisplay(byte[] gfx)
+	void tileWindow()
 	{
-		BufferedImage screen = new BufferedImage(w * scale, h * scale, BufferedImage.TYPE_INT_RGB);
+		tileFrame = new JFrame();
 		
-		Palette palette = new Palette(0xFF47);
+		tileFrame.setVisible(false);
 		
-		for (int x = 0; x < w; x++)
-		{
-			for (int y = 0; y < h; y++)
-			{
-				for (int i = 0; i < scale; i++)
-				{
-					for (int j = 0; j < scale; j++)
-					{
-						screen.setRGB(x * scale + i, y * scale + j, palette.color(gfx[x + (y * w)]));
-					}
-				}
-			}
-		}
+		updateTileWindow();
 		
-		return screen;
+		tileFrame.pack();
+		tileFrame.setVisible(true);
+	}
+	
+	void updateTileWindow()
+	{
+		JLabel item = new JLabel(new ImageIcon(PixelOps.getTileDisplay(tileset)));
+		tileFrame.add(item);
+		
+		tileFrame.repaint();
 	}
 	
 	void debugWindow()
@@ -337,25 +346,25 @@ public class PPU implements ActionListener
 		{
 			updatePalette();
 			
-			UnsignedByte subBGP = new UnsignedByte();
+			UnsignedByte subPal = new UnsignedByte();
 			
 			if (color < 4)
 			{
-				subBGP.setBit(0, palRegister.getBit(color * 2));
-				subBGP.setBit(1, palRegister.getBit((color * 2) + 1));
+				subPal.setBit(0, palRegister.getBit(color * 2));
+				subPal.setBit(1, palRegister.getBit((color * 2) + 1));
 			}
 			
 			else if (color == OFF)
 			{
-				subBGP.set(OFF);
+				subPal.set(OFF);
 			}
 			
 			else
 			{
-				subBGP.set(-1);
+				subPal.set(-1);
 			}
 			
-			return trueColors[subBGP.get()].getRGB();
+			return trueColors[subPal.get()].getRGB();
 		}
 	}
 	
@@ -363,7 +372,11 @@ public class PPU implements ActionListener
 	{
 		final static int LEN = 16;
 		
+		final static int VRAM = 0x8000;
+		
 		int index;
+		
+		Palette palette;
 		
 		UnsignedByte tileData[];
 		
@@ -383,7 +396,17 @@ public class PPU implements ActionListener
 		
 		void init()
 		{
-			tileData = new UnsignedByte[LEN];
+			tileData = new UnsignedByte[LEN * 4];
+			
+			for (int i = 0; i < tileData.length; i++)
+			{
+				tileData[i] = new UnsignedByte();
+			}
+		}
+		
+		void setPalette(Palette newPalette)
+		{
+			palette = newPalette;
 		}
 		
 		void setIndex(int newIndex)
@@ -393,9 +416,17 @@ public class PPU implements ActionListener
 		
 		void updateData()
 		{
-			for (int i = 0; i < LEN; i++)
+			UnsignedByte pixel = new UnsignedByte();
+			
+			for (int i = 0; i < 16; i++)
 			{
-				tileData[i] = GB.cpu.mmu.read(index + i);
+				for (int j = 0; j < 4; j++)
+				{
+					pixel.setBit(0, GB.cpu.mmu.read(VRAM + i).getBit(j * 2));
+					pixel.setBit(1, GB.cpu.mmu.read(VRAM + i).getBit((j * 2) + 1));
+					
+					tileData[j + (i * 4)].set(pixel);
+				}
 			}
 		}
 	}
@@ -403,8 +434,6 @@ public class PPU implements ActionListener
 	private class TileSet
 	{
 		final static int LEN = 384;
-		
-		final static int VRAM = 0x8000;
 		
 		Palette palette;
 		
@@ -414,11 +443,26 @@ public class PPU implements ActionListener
 		{
 			tiles = new Tile[LEN];
 			
+			initTiles();
+			
+			updateTiles();
+		}
+		
+		void setPalettes(Palette newPalette)
+		{
+			for (Tile tile : tiles)
+			{
+				tile.setPalette(newPalette);
+			}
+		}
+		
+		void initTiles()
+		{
 			for (int i = 0; i < tiles.length; i++)
 			{
-				tiles[i].setIndex(VRAM + (i * 16));
+				tiles[i] = new Tile();
 				
-				System.out.println(VRAM + (i * 16));
+				tiles[i].setIndex(Tile.VRAM + (i * 0x10));
 			}
 		}
 		
@@ -429,5 +473,84 @@ public class PPU implements ActionListener
 				tile.updateData();
 			}
 		}
+	}
+	
+	
+	
+	private static abstract class PixelOps
+	{
+		static BufferedImage getDisplay(int gfx[])
+		{
+			BufferedImage screen = new BufferedImage(w * scale, h * scale, BufferedImage.TYPE_INT_RGB);
+			
+			setDisplay(screen, gfx);
+			
+			return screen;
+		}
+		
+		static void setDisplay(BufferedImage screen, int gfx[])
+		{
+			int width = ((screen.getWidth()) / scale);
+			int height = ((screen.getHeight()) / scale);
+			
+			for (int x = 0; x < width; x++)
+			{
+				for (int y = 0; y < height; y++)
+				{
+					for (int i = 0; i < scale; i++)
+					{
+						for (int j = 0; j < scale; j++)
+						{
+							screen.setRGB(x * scale + i, y * scale + j, gfx[x + (y * width)]);
+						}
+					}
+				}
+			}
+		}
+		
+		static BufferedImage getTileDisplay(TileSet tileset)
+		{
+			BufferedImage screen = new BufferedImage(tileset.LEN / 6, tileset.LEN, BufferedImage.TYPE_INT_RGB);
+			
+			int gfx[] = new int[tileset.LEN * 384];
+			
+			tileset.updateTiles();
+			
+			drawTile(tileset.tiles[0], gfx, 0);
+			
+			for (int x = 0; x < 8; x++)
+			{
+				for (int y = 0; y < 48; y++)
+				{
+					
+				}
+			}
+			
+			setDisplay(screen, gfx);
+			
+			return screen;
+		}
+		
+		static int[] drawTile(Tile tile, int fb[], int offset)
+		{
+			tile.palette.updatePalette();
+			
+			tile.updateData();
+			
+			for (int y = 0; y < 8; y++)
+			{
+				for (int x = 0; y < 8; y++)
+				{
+					
+				}
+			}
+			
+			return fb;
+		}
+	}
+	
+	private class BGMap
+	{
+		
 	}
 }
