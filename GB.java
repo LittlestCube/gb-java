@@ -9,6 +9,8 @@ public class GB
 {
 	static boolean debug;
 	static boolean ram;
+	static boolean tile;
+	static boolean map;
 	
 	static CPU cpu;
 	static PPU ppu;
@@ -18,53 +20,68 @@ public class GB
 	
 	public static void main(String args[]) throws InterruptedException
 	{
-		millisleeps = 0;
-		
-		debug = false;
-		ram = false;
-		
-		cpu = new CPU();
-		
-		cpu.initMMU();
-		
-		timer = new Timer();
-		
-		ppu = new PPU();
-		
-		while (true)
+		try
 		{
-			Thread.sleep(0);
+			millisleeps = 0;
 			
-			if (cpu.run)
+			debug = false;
+			ram = false;
+			tile = false;
+			map = false;
+			
+			cpu = new CPU();
+			
+			cpu.initMMU();
+			
+			timer = new Timer();
+			
+			ppu = new PPU();
+			
+			while (true)
 			{
-				while (cpu.run)
+				Thread.sleep(0);
+				
+				if (cpu.run)
 				{
-					if (cpu.pc.get() > 0x100)
+					while (cpu.run)
 					{
-						ppu.updateTileWindow();
-					}
-					
-					// (temporary code) print results of blargg's test ROMs
-					if (cpu.mmu.read(0xFF02).get() == 0xFF)
-					{
-						System.out.print((char) cpu.memory[0xFF01].get());
+						if (cpu.pc.get() > 0x100 && tile)
+						{
+							ppu.updateTileWindow();
+						}
 						
-						cpu.mmu.write(0xFF02, 0x00);
+						if (cpu.pc.get() > 0x100 && map)
+						{
+							ppu.updateBGMWindow();
+						}
+						
+						// (temporary code) print results of blargg's test ROMs
+						if (cpu.mmu.read(0xFF02).get() == 0xFF)
+						{
+							System.out.print((char) cpu.memory[0xFF01].get());
+							
+							cpu.mmu.write(0xFF02, 0x00);
+						}
+						
+						if (cpu.pc.get() == 0x100)
+						{
+							cpu.replaceBIOS();
+						}
+						
+						cpu.memory[0xFF44].set(0x90);						// PPU substitute
+						
+						Thread.sleep(millisleeps);
+						
+						cpu.cycle();
+						timer.clock(cpu.t);
 					}
-					
-					if (cpu.pc.get() == 0x100)
-					{
-						cpu.replaceBIOS();
-					}
-					
-					cpu.memory[0xFF44].set(0x90);						// PPU substitute
-					
-					Thread.sleep(millisleeps);
-					
-					cpu.cycle();
-					timer.clock(cpu.t);
 				}
 			}
+		}
+		
+		catch (Exception e)
+		{
+			e.printStackTrace();
 		}
 	}
 	

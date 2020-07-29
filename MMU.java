@@ -29,8 +29,7 @@ public class MMU
 		
 		for (int i = 0; i < GB.cpu.memory.length; i++)
 		{
-			//GB.cpu.memory[i] = new UnsignedByte(rand.nextInt());
-			GB.cpu.memory[i] = new UnsignedByte();
+			GB.cpu.memory[i] = new UnsignedByte(rand.nextInt());
 		}
 		
 		initValues();
@@ -56,7 +55,9 @@ public class MMU
 	
 	public void writeBit(int offset, int position, int value)
 	{
-		UnsignedByte ub = read(offset);
+		UnsignedByte ub = new UnsignedByte();
+		
+		ub.set(read(offset));
 		
 		ub.setBit(position, value);
 		
