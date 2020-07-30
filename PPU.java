@@ -11,6 +11,7 @@ import javax.swing.JTextArea;
 import javax.swing.ImageIcon;
 import javax.swing.JMenuBar;
 import javax.swing.JMenu;
+import javax.swing.JCheckBoxMenuItem;
 import javax.swing.JMenuItem;
 import javax.swing.SwingUtilities;
 import javax.swing.KeyStroke;
@@ -29,11 +30,11 @@ import java.awt.image.BufferedImage;
 
 public class PPU implements ActionListener
 {
-	final static int scale = 1;
+	final static int scale = 2;
 	
 	int bgm[] = new int[256 * 256];
 	
-	static MainDisplay display;
+	static FIFO fifo;
 	
 	static TileSelector tileselector;
 	
@@ -45,8 +46,10 @@ public class PPU implements ActionListener
 	
 	JMenuBar bar;
 	JMenu file;
+	JMenu options;
 	JMenu debug;
 	JMenuItem open;
+	JCheckBoxMenuItem bios;
 	JMenuItem debugItem;
 	JMenuItem ram;
 	JMenuItem tile;
@@ -83,6 +86,7 @@ public class PPU implements ActionListener
 		bgmFrame = new JFrame("Map View");
 		
 		open = new JMenuItem("Open");
+		bios = new JCheckBoxMenuItem("Use BIOS");
 		debugItem = new JMenuItem("Debugger");
 		ram = new JMenuItem("RAM View");
 		tile = new JMenuItem("Tile View");
@@ -90,6 +94,7 @@ public class PPU implements ActionListener
 		pause = new JMenuItem("Pause");
 		sleep = new JMenuItem("Sleep Value");
 		file = new JMenu("File");
+		options = new JMenu("Options");
 		debug = new JMenu("Debug");
 		bar = new JMenuBar();
 		
@@ -102,11 +107,11 @@ public class PPU implements ActionListener
 		
 		tileselector = new TileSelector();
 		
-		MainDisplay.initDisplay();
+		fifo = new FIFO();
 		
-		MainDisplay.turnOffDisplay();
+		fifo.turnOffDisplay();
 		
-		JLabel item = new JLabel(new ImageIcon(MainDisplay.display));
+		JLabel item = new JLabel(new ImageIcon(fifo.display));
 		frame.add(item);
 		
 		file.add(open);
@@ -117,13 +122,16 @@ public class PPU implements ActionListener
 		debug.addSeparator();
 		debug.add(pause);
 		debug.add(sleep);
+		options.add(bios);
 		bar.add(file);
+		bar.add(options);
 		bar.add(debug);
 		frame.setJMenuBar(bar);
 		
 		pause.setEnabled(false);
 		
 		open.addActionListener(this);
+		bios.addActionListener(this);
 		debugItem.addActionListener(this);
 		ram.addActionListener(this);
 		tile.addActionListener(this);
@@ -134,162 +142,8 @@ public class PPU implements ActionListener
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		
 		frame.pack();
+		frame.setResizable(false);
 		frame.setVisible(true);
-	}
-	
-	void debugWindow()
-	{
-		if (!GB.debug)
-		{
-			debugText = new JTextArea(30, 20);
-			debugText.setEnabled(false);
-			
-			debugFrame = new JFrame("Debugger");
-			
-			debugFrame.addWindowListener(new WindowAdapter()
-			{
-				public void windowClosing(WindowEvent e)
-				{
-					GB.debug = false;
-					debugFrame.dispose();
-				}
-			});
-			
-			debugFrame.add(debugText);
-			debugFrame.pack();
-			
-			debugFrame.setLocationRelativeTo(null);
-			
-			debugFrame.setVisible(true);
-			
-			GB.debug = true;
-			GB.cpu.debug();
-		}
-		
-		else
-		{
-			debugFrame.requestFocus();
-		}
-	}
-	
-	void ramWindow()
-	{
-		if (!GB.ram)
-		{
-			ramText = new JTextArea(1, 23);
-			ramText.setEnabled(false);
-			
-			scroll = new JScrollPane(ramText);
-			
-			ramFrame = new JFrame("Memory View");
-			ramFrame.add(scroll);
-			ramFrame.pack();
-			
-			ramFrame.setLocationRelativeTo(null);
-			
-			ramFrame.addWindowListener(new WindowAdapter()
-			{
-				public void windowClosing(WindowEvent e)
-				{
-					GB.ram = false;
-					ramFrame.dispose();
-				}
-			});
-			
-			ramFrame.setVisible(true);
-			
-			GB.ram = true;
-			GB.cpu.ram();
-		}
-		
-		else
-		{
-			ramFrame.requestFocus();
-		}
-	}
-	
-	void tileWindow()
-	{
-		if (!GB.tile)
-		{
-			if (tileDisplay == null)
-			{
-				tileDisplay = new BufferedImage(16 * 8 * scale, 24 * 8 * scale, BufferedImage.TYPE_INT_RGB);
-			}
-			
-			updateTileWindow();
-			
-			tileFrame.addWindowListener(new WindowAdapter()
-			{
-				public void windowClosing(WindowEvent e)
-				{
-					GB.tile = false;
-					tileFrame.dispose();
-				}
-			});
-			
-			tileItem = new JLabel(new ImageIcon(tileDisplay));
-			tileFrame.add(tileItem);
-			
-			tileFrame.pack();
-			tileFrame.setVisible(true);
-			
-			GB.tile = true;
-		}
-		
-		else
-		{
-			tileFrame.requestFocus();
-		}
-	}
-	
-	void updateTileWindow()
-	{
-		PixelOps.getTileDisplay(tileDisplay, tileselector);
-		
-		tileFrame.repaint();
-	}
-	
-	void bgmWindow()
-	{
-		if (!GB.map)
-		{
-			if (bgmDisplay == null)
-			{
-				bgmDisplay = new BufferedImage(256 * scale, 256 * scale, BufferedImage.TYPE_INT_RGB);
-			}
-			
-			updateBGMWindow();
-			
-			bgmFrame.addWindowListener(new WindowAdapter()
-			{
-				public void windowClosing(WindowEvent e)
-				{
-					GB.map = false;
-					bgmFrame.dispose();
-				}
-			});
-			
-			bgmItem = new JLabel(new ImageIcon(bgmDisplay));
-			bgmFrame.add(bgmItem);
-			
-			bgmFrame.pack();
-			bgmFrame.setVisible(true);
-			
-			GB.map = true;
-		}
-		
-		else
-		{
-			bgmFrame.requestFocus();
-		}
-	}
-	
-	void updateBGMWindow()
-	{
-		PixelOps.getBGMDisplay(bgmDisplay, tileselector);
-		
-		bgmFrame.repaint();
 	}
 	
 	public void actionPerformed(ActionEvent e)
@@ -316,6 +170,11 @@ public class PPU implements ActionListener
 				
 				frame.setTitle("GrumpBoy - " + getROMTitle());
 			}
+		}
+		
+		if (src == bios)
+		{
+			GB.useBIOS = bios.getState();
 		}
 		
 		if (src == debugItem)
@@ -363,6 +222,174 @@ public class PPU implements ActionListener
 		}
 	}
 	
+	void updateMainFrame()
+	{
+		frame.repaint();
+	}
+	
+	void debugWindow()
+	{
+		if (!GB.debug)
+		{
+			debugText = new JTextArea(30, 20);
+			debugText.setEnabled(false);
+			
+			debugFrame = new JFrame("Debugger");
+			
+			debugFrame.addWindowListener(new WindowAdapter()
+			{
+				public void windowClosing(WindowEvent e)
+				{
+					GB.debug = false;
+					debugFrame.dispose();
+				}
+			});
+			
+			debugFrame.add(debugText);
+			debugFrame.pack();
+			
+			debugFrame.setLocationRelativeTo(null);
+			debugFrame.setResizable(false);
+			
+			debugFrame.setVisible(true);
+			
+			GB.debug = true;
+			GB.cpu.debug();
+		}
+		
+		else
+		{
+			debugFrame.requestFocus();
+		}
+	}
+	
+	void ramWindow()
+	{
+		if (!GB.ram)
+		{
+			ramText = new JTextArea(1, 23);
+			ramText.setEnabled(false);
+			
+			scroll = new JScrollPane(ramText);
+			
+			ramFrame = new JFrame("Memory View");
+			ramFrame.add(scroll);
+			ramFrame.pack();
+			
+			ramFrame.setLocationRelativeTo(null);
+			
+			ramFrame.addWindowListener(new WindowAdapter()
+			{
+				public void windowClosing(WindowEvent e)
+				{
+					GB.ram = false;
+					ramFrame.dispose();
+				}
+			});
+			
+			ramFrame.setResizable(false);
+			
+			ramFrame.setVisible(true);
+			
+			GB.ram = true;
+			GB.cpu.ram();
+		}
+		
+		else
+		{
+			ramFrame.requestFocus();
+		}
+	}
+	
+	void tileWindow()
+	{
+		if (!GB.tile)
+		{
+			if (tileDisplay == null)
+			{
+				tileDisplay = new BufferedImage(16 * 8 * scale, 24 * 8 * scale, BufferedImage.TYPE_INT_RGB);
+				
+				tileItem = new JLabel(new ImageIcon(tileDisplay));
+				tileFrame.add(tileItem);
+			}
+			
+			updateTileWindow();
+			
+			tileFrame.addWindowListener(new WindowAdapter()
+			{
+				public void windowClosing(WindowEvent e)
+				{
+					GB.tile = false;
+					tileFrame.dispose();
+				}
+			});
+			
+			tileFrame.pack();
+			tileFrame.setResizable(false);
+			tileFrame.setVisible(true);
+			
+			GB.tile = true;
+		}
+		
+		else
+		{
+			tileFrame.requestFocus();
+		}
+	}
+	
+	void updateTileWindow()
+	{
+		PixelOps.getTileDisplay(tileDisplay, tileselector);
+		
+		tileFrame.repaint();
+	}
+	
+	void bgmWindow()
+	{
+		if (!GB.map)
+		{
+			if (bgmDisplay == null)
+			{
+				bgmDisplay = new BufferedImage(256 * scale, 256 * scale, BufferedImage.TYPE_INT_RGB);
+				
+				bgmItem = new JLabel(new ImageIcon(bgmDisplay));
+				bgmFrame.add(bgmItem);
+			}
+			
+			updateBGMWindow();
+			
+			bgmFrame.addWindowListener(new WindowAdapter()
+			{
+				public void windowClosing(WindowEvent e)
+				{
+					GB.map = false;
+					bgmFrame.dispose();
+				}
+			});
+			
+			bgmItem = new JLabel(new ImageIcon(bgmDisplay));
+			bgmFrame.add(bgmItem);
+			
+			bgmFrame.pack();
+			bgmFrame.setResizable(false);
+			bgmFrame.setVisible(true);
+			
+			GB.map = true;
+		}
+		
+		else
+		{
+			bgmFrame.requestFocus();
+		}
+	}
+	
+	void updateBGMWindow()
+	{
+		PixelOps.getBGMDisplay(bgmDisplay, tileselector);
+		
+		bgmFrame.repaint();
+	}
+	
 	String getROMTitle()
 	{
 		String title = "";
@@ -373,6 +400,51 @@ public class PPU implements ActionListener
 		}
 		
 		return title;
+	}
+	
+	
+	
+	// Let the torment begin...
+	
+	class FIFO
+	{
+		final static int w = 160;
+		final static int h = 144;
+		
+		int gfx[] = new int[w * h];
+		
+		int buffer[] = new int[16];
+		
+		BufferedImage display;
+		
+		private FIFO()
+		{
+			display = new BufferedImage(w * scale, h * scale, BufferedImage.TYPE_INT_RGB);
+		}
+		
+		void turnOffDisplay()
+		{
+			fillDisplay(Palette.OFF);
+		}
+		
+		void turnOnDisplay()
+		{
+			fillDisplay(0);
+		}
+		
+		void fillDisplay(int gbcolor)
+		{
+			int fillbytes[] = new int[w * h];
+			
+			for (int i = 0; i < fillbytes.length; i++)
+			{
+				fillbytes[i] = tileselector.BGP.trueColor(gbcolor);
+			}
+			
+			PixelOps.setDisplay(display, fillbytes);
+			
+			updateMainFrame();
+		}
 	}
 	
 	
@@ -447,6 +519,11 @@ public class PPU implements ActionListener
 			}
 			
 			return trueColors[subPal.get()].getRGB();
+		}
+		
+		int trueColor(int color)
+		{
+			return trueColors[color].getRGB();
 		}
 	}
 	
@@ -575,31 +652,6 @@ public class PPU implements ActionListener
 	}
 	
 	
-	
-	private static abstract class MainDisplay
-	{
-		final static int w = 160;
-		final static int h = 144;
-		
-		static BufferedImage display;
-		
-		static void initDisplay()
-		{
-			display = new BufferedImage(w * scale, h * scale, BufferedImage.TYPE_INT_RGB);
-		}
-		
-		static void turnOffDisplay()
-		{
-			int off[] = new int[w * h];
-			
-			for (int i = 0; i < off.length; i++)
-			{
-				off[i] = tileselector.BGP.color(Palette.OFF);
-			}
-			
-			PixelOps.setDisplay(display, off);
-		}
-	}
 	
 	private static abstract class PixelOps
 	{

@@ -7,6 +7,8 @@ import java.io.File;
 
 public class GB
 {
+	static boolean useBIOS;
+	
 	static boolean debug;
 	static boolean ram;
 	static boolean tile;
@@ -24,6 +26,7 @@ public class GB
 		{
 			millisleeps = 0;
 			
+			useBIOS = false;
 			debug = false;
 			ram = false;
 			tile = false;
@@ -43,24 +46,20 @@ public class GB
 				
 				if (cpu.run)
 				{
+					ppu.fifo.turnOnDisplay();
+					
+					cpu.memory[0xFF44].set(0x90);
+					
 					while (cpu.run)
 					{
-						if (cpu.pc.get() > 0x100 && tile)
+						if (cpu.clockm % 1000 == 0 && GB.tile)
 						{
-							ppu.updateTileWindow();
+							GB.ppu.updateTileWindow();
 						}
 						
-						if (cpu.pc.get() > 0x100 && map)
+						if (cpu.clockm % 1000 == 0 && GB.map)
 						{
-							ppu.updateBGMWindow();
-						}
-						
-						// (temporary code) print results of blargg's test ROMs
-						if (cpu.mmu.read(0xFF02).get() == 0xFF)
-						{
-							System.out.print((char) cpu.memory[0xFF01].get());
-							
-							cpu.mmu.write(0xFF02, 0x00);
+							GB.ppu.updateBGMWindow();
 						}
 						
 						if (cpu.pc.get() == 0x100)
@@ -68,9 +67,10 @@ public class GB
 							cpu.replaceBIOS();
 						}
 						
-						cpu.memory[0xFF44].set(0x90);						// PPU substitute
-						
-						Thread.sleep(millisleeps);
+						if (millisleeps != 0)
+						{
+							Thread.sleep(millisleeps);
+						}
 						
 						cpu.cycle();
 						timer.clock(cpu.t);

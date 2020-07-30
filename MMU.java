@@ -41,7 +41,7 @@ public class MMU
 		
 		value.set(GB.cpu.memory[offset]);
 		
-		value = retainConstants(offset, value);
+		value = readEffects(offset, value);
 		
 		return value;
 	}
@@ -64,7 +64,7 @@ public class MMU
 		write(offset, ub.get());
 	}
 	
-	UnsignedByte retainConstants(int offset, UnsignedByte value)
+	UnsignedByte readEffects(int offset, UnsignedByte value)
 	{
 		switch (offset)
 		{
@@ -95,6 +95,16 @@ public class MMU
 	
 	void writeEffects(int offset, int value)
 	{
+		if (offset >= 0x8000 && offset < 0x9800 && GB.tile)
+		{
+			GB.ppu.updateTileWindow();
+		}
+		
+		if (offset >= 0x9800 && offset < 0xA000 && GB.map)
+		{
+			GB.ppu.updateBGMWindow();
+		}
+		
 		switch (offset)
 		{
 			case 0xFF04:

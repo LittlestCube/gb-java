@@ -223,17 +223,7 @@ public class CPU
 		{
 			File bios = new File("dmg_bios.gb");
 			
-			if (bios.exists())
-			{
-				byte[] biosROM = Files.readAllBytes(Paths.get(bios.getAbsolutePath()));
-				
-				for (int i = 0; i < 0x100; i++)
-				{
-					memory[i].set(biosROM[i]);
-				}
-			}
-			
-			else
+			if (!bios.exists() || !GB.useBIOS)
 			{
 				r[A].set(0x01);
 				r[B].set(0x00);
@@ -246,6 +236,25 @@ public class CPU
 				pc.set(0x100);
 				
 				sp.set(0xFFFE);
+				
+				memory[0xFF47].set(0xFC);
+				memory[0xFF48].set(0x00);
+				memory[0xFF49].set(0x00);
+				
+				for (int i = 0; i < 0x2000; i++)
+				{
+					memory[0x8000 + i].set(0x00);
+				}
+			}
+			
+			else
+			{
+				byte[] biosROM = Files.readAllBytes(Paths.get(bios.getAbsolutePath()));
+				
+				for (int i = 0; i < 0x100; i++)
+				{
+					memory[i].set(biosROM[i]);
+				}
 			}
 		}
 		
@@ -298,7 +307,7 @@ public class CPU
 			return;
 		}
 		
-		/*if (firstCycle)
+		if (firstCycle)
 		{
 			firstCycle = false;
 			
@@ -306,7 +315,7 @@ public class CPU
 			clockt += m += 1;
 			
 			return;
-		}*/
+		}
 		
 		retainF();
 		
