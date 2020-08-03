@@ -30,13 +30,18 @@ import java.awt.image.BufferedImage;
 
 public class PPU implements ActionListener
 {
+	final static int w = 160;
+	final static int h = 144;
+	
 	final static int scale = 2;
 	
-	int bgm[] = new int[256 * 256];
-	
-	static FIFO fifo;
+	static ScanlineRenderer sr;
 	
 	static TileSelector tileselector;
+	
+	static BufferedImage mainDisplay;
+	static BufferedImage tileDisplay;
+	static BufferedImage bgmDisplay;
 	
 	JFrame frame;
 	JFrame tileFrame;
@@ -57,10 +62,8 @@ public class PPU implements ActionListener
 	JMenuItem pause;
 	JMenuItem sleep;
 	
-	static BufferedImage tileDisplay;
 	static JLabel tileItem;
 	
-	static BufferedImage bgmDisplay;
 	static JLabel bgmItem;
 	
 	static JTextArea debugText;
@@ -105,27 +108,40 @@ public class PPU implements ActionListener
 		map.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_M, ActionEvent.CTRL_MASK));
 		pause.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_P, ActionEvent.CTRL_MASK));
 		
+		mainDisplay = new BufferedImage(w * scale, h * scale, BufferedImage.TYPE_INT_RGB);
+		
+		bgmDisplay = new BufferedImage(256 * scale, 256 * scale, BufferedImage.TYPE_INT_RGB);
+		
+		bgmItem = new JLabel(new ImageIcon(bgmDisplay));
+		bgmFrame.add(bgmItem);
+		
 		tileselector = new TileSelector();
 		
-		fifo = new FIFO();
+		sr = new ScanlineRenderer();
 		
-		fifo.turnOffDisplay();
+		sr.turnOffDisplay();
 		
-		JLabel item = new JLabel(new ImageIcon(fifo.display));
+		JLabel item = new JLabel(new ImageIcon(mainDisplay));
 		frame.add(item);
 		
 		file.add(open);
+		
 		debug.add(debugItem);
 		debug.add(ram);
 		debug.add(tile);
 		debug.add(map);
+		
 		debug.addSeparator();
+		
 		debug.add(pause);
 		debug.add(sleep);
+		
 		options.add(bios);
+		
 		bar.add(file);
 		bar.add(options);
 		bar.add(debug);
+		
 		frame.setJMenuBar(bar);
 		
 		pause.setEnabled(false);
@@ -339,7 +355,9 @@ public class PPU implements ActionListener
 	
 	void updateTileWindow()
 	{
-		PixelOps.getTileDisplay(tileDisplay, tileselector);
+		TileMap.updateDisplay();
+		
+		PixelOps.setDisplay(tileDisplay, TileMap.tilemap);
 		
 		tileFrame.repaint();
 	}
@@ -348,14 +366,6 @@ public class PPU implements ActionListener
 	{
 		if (!GB.map)
 		{
-			if (bgmDisplay == null)
-			{
-				bgmDisplay = new BufferedImage(256 * scale, 256 * scale, BufferedImage.TYPE_INT_RGB);
-				
-				bgmItem = new JLabel(new ImageIcon(bgmDisplay));
-				bgmFrame.add(bgmItem);
-			}
-			
 			updateBGMWindow();
 			
 			bgmFrame.addWindowListener(new WindowAdapter()
@@ -385,7 +395,9 @@ public class PPU implements ActionListener
 	
 	void updateBGMWindow()
 	{
-		PixelOps.getBGMDisplay(bgmDisplay, tileselector);
+		BGMap.updateDisplay();
+		
+		PixelOps.setDisplay(bgmDisplay, BGMap.bgmap);
 		
 		bgmFrame.repaint();
 	}
@@ -404,22 +416,143 @@ public class PPU implements ActionListener
 	
 	
 	
-	// Let the torment begin...
-	
-	class FIFO
+	class ScanlineRenderer
 	{
-		final static int w = 160;
-		final static int h = 144;
+		UnsignedByte lcdc;
 		
-		int gfx[] = new int[w * h];
+		UnsignedByte stat;
 		
-		int buffer[] = new int[16];
+		UnsignedByte ly;
 		
-		BufferedImage display;
+		UnsignedByte lyc;
 		
-		private FIFO()
+		int clocks;
+		
+		int lx;
+		
+		int currClocks;
+		
+		int mode;
+		
+		private ScanlineRenderer()
 		{
-			display = new BufferedImage(w * scale, h * scale, BufferedImage.TYPE_INT_RGB);
+			initRegisters();
+		}
+		
+		void initRegisters()
+		{
+			lcdc = new UnsignedByte();
+			
+			stat = new UnsignedByte();
+			
+			ly = new UnsignedByte();
+			
+			lyc = new UnsignedByte();
+			
+			lx = 0;
+			
+			currClocks = -1;
+			
+			mode = 2;
+			
+			GB.cpu.mmu.lockRange(0xFE00, 0xFE9F);
+		}
+		
+		void updateRegisters()
+		{
+			lcdc.set(GB.cpu.memory[0xFF40].get());
+			
+			stat.set(GB.cpu.memory[0xFF41].get());
+			
+			lyc.set(GB.cpu.memory[0xFF45].get());
+		}
+		
+		void clock(int newClocks)
+		{
+			clocks += newClocks;
+			
+			while (clocks > 0)
+			{
+				currClocks++;
+				clocks--;
+				
+				switch (mode)
+				{
+					case 0:
+					{
+						if (currClocks % 456 == 0)
+						{
+							ly.add(1);
+							
+							if (ly.get() == 144)
+							{
+								mode = 1;
+							}
+							
+							else
+							{
+								mode = 2;
+							}
+						}
+						
+						break;
+					}
+					
+					case 1:
+					{
+						if (currClocks == 70224)
+						{
+							mode = 2;
+						}
+						
+						break;
+					}
+					
+					case 2:
+					{
+						// TODO: add OAM search stuffs
+						
+						if (currClocks == 80)
+						{
+							System.out.println("N: I mean, we're here...");
+							
+							mode = 3;
+							
+							GB.cpu.mmu.unlockRange(0x8000, 0x9FFF);		// mode 0 unlocks VRAM
+							GB.cpu.mmu.unlockRange(0xFE00, 0xFE9F);		// and OAM
+						}
+						
+						else if (currClocks > 80)
+						{
+							mode = 3;
+							
+							System.out.println("E: ...well, we're boned. (currClocks > 80 in mode 2)");
+						}
+						
+						break;
+					}
+					
+					case 3:
+					{
+						BGMap.updateDisplay();
+						
+						PixelOps.drawPixel(lx, ly.get(), mainDisplay, BGMap.bgmap[lx + (ly.get() * 256)]);
+						
+						updateMainFrame();
+						
+						lx++;
+						
+						if (lx == 160)
+						{
+							mode = 0;
+							
+							lx = 0;
+						}
+						
+						break;
+					}
+				}
+			}
 		}
 		
 		void turnOffDisplay()
@@ -430,6 +563,8 @@ public class PPU implements ActionListener
 		void turnOnDisplay()
 		{
 			fillDisplay(0);
+			
+			mode = 2;
 		}
 		
 		void fillDisplay(int gbcolor)
@@ -441,7 +576,7 @@ public class PPU implements ActionListener
 				fillbytes[i] = tileselector.BGP.trueColor(gbcolor);
 			}
 			
-			PixelOps.setDisplay(display, fillbytes);
+			PixelOps.setDisplay(mainDisplay, fillbytes);
 			
 			updateMainFrame();
 		}
@@ -449,7 +584,73 @@ public class PPU implements ActionListener
 	
 	
 	
-	// Tiles, tiles, tiles...
+	private static abstract class TileMap
+	{
+		static int tilemap[] = new int[16 * 8 * 24 * 8];
+		
+		static BufferedImage display = new BufferedImage(16 * 8 * scale, 24 * 8 * scale, BufferedImage.TYPE_INT_RGB);
+		
+		static void updateDisplay()
+		{
+			Thread thread = new Thread()
+			{
+				public void run()
+				{
+					int gfx[] = new int[16 * 8 * 24 * 8];
+					
+					for (int y = 0; y < 24; y++)
+					{
+						for (int x = 0; x < 16; x++)
+						{
+							PixelOps.drawBGTile((x + (y * 16)), ((x * 8) + ((y * 8) * 128)), display.getWidth() / scale, tilemap);
+						}
+					}
+				}
+			};
+			
+			thread.start();
+		}
+	}
+	
+	private static abstract class BGMap
+	{
+		static int bgmap[] = new int[256 * 256];
+		
+		static void updateDisplay()
+		{
+			Thread thread = new Thread()
+			{
+				public void run()
+				{
+					for (int y = 0; y < 32; y++)
+					{
+						for (int x = 0; x < 32; x++)
+						{
+							sr.updateRegisters();
+							
+							int mapOffset;
+							
+							if (sr.lcdc.getBit(3) == 0)
+							{
+								mapOffset = TileSelector.MAP1;
+							}
+							
+							else
+							{
+								mapOffset = TileSelector.MAP2;
+							}
+							
+							PixelOps.drawBGTile(GB.cpu.memory[mapOffset + (x + (y * 32))].get(), ((x * 8) + ((y * 8) * 256)), bgmDisplay.getWidth() / scale, bgmap);
+						}
+					}
+				}
+			};
+			
+			thread.start();
+		}
+	}
+	
+	
 	
 	private class Palette
 	{
@@ -613,11 +814,19 @@ public class PPU implements ActionListener
 			OBP2.updatePalette();
 		}
 		
-		int[] tileData(int tileNo)
+		int[] BGTileData(int tileNo)
 		{
 			updatePalettes();
 			
-			int index = tileset.tiles[tileNo].index;
+			int tileOffset = 0;
+			
+			if (sr.lcdc.getBit(4) == 0)
+			{
+				tileNo = (byte) tileNo;
+				tileOffset = 256;
+			}
+			
+			int index = tileset.tiles[tileOffset + tileNo].index;
 			
 			int tileData[] = new int[64];
 			
@@ -664,62 +873,33 @@ public class PPU implements ActionListener
 			{
 				for (int y = 0; y < height; y++)
 				{
-					for (int i = 0; i < scale; i++)
-					{
-						for (int j = 0; j < scale; j++)
-						{
-							screen.setRGB((x * scale) + i, (y * scale) + j, gfx[x + (y * width)]);
-						}
-					}
+					drawPixel(x, y, screen, gfx[x + (y * width)]);
 				}
 			}
 		}
 		
-		static BufferedImage getTileDisplay(BufferedImage screen, TileSelector ts)
+		static void drawPixel(int x, int y, BufferedImage screen, int color)
 		{
-			int gfx[] = new int[16 * 8 * 24 * 8];
+			int width = ((screen.getWidth()) / scale);
 			
-			for (int y = 0; y < 24; y++)
+			for (int i = 0; i < scale; i++)
 			{
-				for (int x = 0; x < 16; x++)
+				for (int j = 0; j < scale; j++)
 				{
-					drawTile((x + (y * 16)), gfx, screen.getWidth() / scale, ((x * 8) + ((y * 8) * 128)));
+					screen.setRGB((x * scale) + i, (y * scale) + j, color);
 				}
 			}
-			
-			setDisplay(screen, gfx);
-			
-			return screen;
 		}
 		
-		static BufferedImage getBGMDisplay(BufferedImage screen, TileSelector ts)
-		{
-			int gfx[] = new int[256 * 256];
-			
-			for (int y = 0; y < 32; y++)
-			{
-				for (int x = 0; x < 32; x++)
-				{
-					drawTile(GB.cpu.memory[TileSelector.MAP1 + (x + (y * 32))].get(), gfx, screen.getWidth() / scale, ((x * 8) + ((y * 8) * 256)));
-				}
-			}
-			
-			setDisplay(screen, gfx);
-			
-			return screen;
-		}
-		
-		static int[] drawTile(int tileNo, int fb[], int widthOfDisplay, int offset)
+		static void drawBGTile(int tileNo, int offset, int width, int fb[])
 		{
 			for (int y = 0; y < 8; y++)
 			{
 				for (int x = 0; x < 8; x++)
 				{
-					fb[offset + (x + (y * widthOfDisplay))] = tileselector.BGP.color(tileselector.tileData(tileNo)[x + (y * 8)]);
+					fb[offset + (x + (y * width))] = tileselector.BGP.color(tileselector.BGTileData(tileNo)[x + (y * 8)]);
 				}
 			}
-			
-			return fb;
 		}
 	}
 }

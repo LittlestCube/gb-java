@@ -44,6 +44,7 @@ public class Timer
 	{
 		clocks += newClocks;
 		
+		readDIV();
 		readTIMA();
 		readTMA();
 		readTAC();
@@ -57,7 +58,7 @@ public class Timer
 				
 				int andResult = tac.getBit(2) & div.getBit(TACVal());
 				
-				if (lastAND == 1 && andResult == 0)
+				if ((lastAND == 1) && ((lastAND = andResult) == 0))
 				{
 					if ((tima.get() + 1) > 0xFF)
 					{
@@ -78,8 +79,6 @@ public class Timer
 					tima.add(1);
 					writeTIMA();
 				}
-				
-				lastAND = andResult;
 				
 				clocks--;
 			}
@@ -104,6 +103,11 @@ public class Timer
 				clock(0);
 			}
 		}
+		
+		else
+		{
+			System.out.println("E: Broken waitClocks.");
+		}
 	}
 	
 	void overflow()
@@ -124,6 +128,11 @@ public class Timer
 			waitClocks--;
 			clocks--;
 		}
+	}
+	
+	void readDIV()
+	{
+		div.set(GB.cpu.memory[0xFF04].get());
 	}
 	
 	void writeDIV()

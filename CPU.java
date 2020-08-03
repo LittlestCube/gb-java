@@ -232,6 +232,7 @@ public class CPU
 				r[E].set(0xD8);
 				r[H].set(0x01);
 				r[L].set(0x4D);
+				r[F].set(0xB0);
 				
 				pc.set(0x100);
 				
@@ -356,11 +357,18 @@ public class CPU
 		
 		if (halt)
 		{
+			mmu.dma = false;
+			
 			clockt += t += 4;
 			clockt += m += 1;
 			
 			cycleDone = true;
 			return;
+		}
+		
+		else
+		{
+			mmu.dma = true;
 		}
 		
 		opcode.set(mmu.read(pc.get()));

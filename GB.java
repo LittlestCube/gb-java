@@ -42,11 +42,13 @@ public class GB
 			
 			while (true)
 			{
-				Thread.sleep(0);
+				ppu.frame.repaint();
+				ppu.tileFrame.repaint();
+				ppu.bgmFrame.repaint();
 				
 				if (cpu.run)
 				{
-					ppu.fifo.turnOnDisplay();
+					ppu.sr.turnOnDisplay();
 					
 					cpu.memory[0xFF44].set(0x90);
 					
@@ -62,17 +64,20 @@ public class GB
 							GB.ppu.updateBGMWindow();
 						}
 						
-						if (cpu.pc.get() == 0x100)
-						{
-							cpu.replaceBIOS();
-						}
-						
 						if (millisleeps != 0)
 						{
 							Thread.sleep(millisleeps);
 						}
 						
 						cpu.cycle();
+						
+						ppu.sr.clock(cpu.t);
+						
+						if (cpu.mmu.dmaOffset != -1)
+						{
+							cpu.mmu.dmaClock(cpu.t);
+						}
+						
 						timer.clock(cpu.t);
 					}
 				}
