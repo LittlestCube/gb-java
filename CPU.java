@@ -37,8 +37,6 @@ public class CPU
 	
 	UnsignedShort sp;
 	
-	boolean biosDone;
-	
 	boolean firstCycle;
 	boolean cycleDone;
 	
@@ -122,8 +120,6 @@ public class CPU
 		d = new UnsignedByte();
 		n = new UnsignedByte();
 		nn = new UnsignedShort();
-		
-		biosDone = false;
 		
 		firstCycle = true;
 		cycleDone = true;
@@ -269,12 +265,9 @@ public class CPU
 	
 	public void replaceBIOS()
 	{
-		if (!biosDone)
+		for (int i = 0; i < 0x100; i++)
 		{
-			for (int i = 0; i < 0x100; i++)
-			{
-				memory[i].set(ROM[i]);
-			}
+			memory[i].set(ROM[i]);
 		}
 	}
 	

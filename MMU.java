@@ -133,14 +133,19 @@ public class MMU
 	
 	void writeEffects(int offset, int value)
 	{
-		if (offset >= 0x8000 && offset < 0x9800 && GB.tile)
+		for (int i = 0; i < 0x1000; i += 16)
 		{
-			GB.ppu.updateTileWindow();
+			if (((offset >= 0x8000 + i && offset < 0x8000 + i - 16 && GB.cpu.memory[0xFF40].getBit(4) == 1) || (offset >= 0x8800 + i && offset < 0x8800 + i - 16)))
+			{
+				PPU.BGMap.updateDisplay();
+				PPU.WinMap.updateDisplay();
+			}
 		}
 		
-		if (offset >= 0x9800 && offset < 0xA000 && GB.map)
+		if ((offset >= 0x9800 && offset < 0x9C00 && (GB.cpu.memory[0xFF40].getBit(3) == 0 || GB.cpu.memory[0xFF40].getBit(6) == 0)) || (offset >= 0x9C00 && offset < 0x9FFF && (GB.cpu.memory[0xFF40].getBit(3) == 1 || GB.cpu.memory[0xFF40].getBit(6) == 1)))
 		{
-			GB.ppu.updateBGMWindow();
+			PPU.BGMap.updateDisplay();
+			PPU.WinMap.updateDisplay();
 		}
 		
 		switch (offset)
@@ -163,6 +168,16 @@ public class MMU
 				{
 					dma(value * 0x100);
 				}
+				
+				break;
+			}
+			
+			case 0xFF40:
+			
+			case 0xFF47:
+			{
+				PPU.BGMap.updateDisplay();
+				PPU.WinMap.updateDisplay();
 				
 				break;
 			}

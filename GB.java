@@ -42,9 +42,7 @@ public class GB
 			
 			while (true)
 			{
-				ppu.frame.repaint();
-				ppu.tileFrame.repaint();
-				ppu.bgmFrame.repaint();
+				Thread.sleep(0);
 				
 				if (cpu.run)
 				{
@@ -94,6 +92,7 @@ public class GB
 	{
 		cpu.init();
 		cpu.initMMU();
+		ppu.sr.init();
 		timer.init();
 	}
 }
