@@ -112,7 +112,7 @@ public class PPU implements ActionListener
 		map.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_M, ActionEvent.CTRL_MASK));
 		pause.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_P, ActionEvent.CTRL_MASK));
 		
-		mainDisplay = new BufferedImage(w * scale, h * scale, BufferedImage.TYPE_INT_RGB);
+		resetMainDisplay();
 		
 		bgmDisplay = new BufferedImage(256 * scale, 256 * scale, BufferedImage.TYPE_INT_RGB);
 		
@@ -124,9 +124,6 @@ public class PPU implements ActionListener
 		sr = new ScanlineRenderer();
 		
 		sr.turnOffDisplay();
-		
-		JLabel item = new JLabel(new ImageIcon(mainDisplay));
-		frame.add(item);
 		
 		file.add(open);
 		
@@ -245,9 +242,9 @@ public class PPU implements ActionListener
 			
 			scale = newScale;
 			
-			frame.dispose();
+			resetMainDisplay();
 			
-			init();
+			frame.pack();
 		}
 		
 		if (src == sleep)
@@ -268,6 +265,16 @@ public class PPU implements ActionListener
 			
 			GB.millisleeps = newsleeps;
 		}
+	}
+	
+	void resetMainDisplay()
+	{
+		frame.getContentPane().removeAll();
+		
+		mainDisplay = new BufferedImage(w * scale, h * scale, BufferedImage.TYPE_INT_RGB);
+		
+		JLabel item = new JLabel(new ImageIcon(mainDisplay));
+		frame.add(item);
 	}
 	
 	void updateMainFrame()

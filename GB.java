@@ -14,6 +14,8 @@ public class GB
 	static boolean tile;
 	static boolean map;
 	
+	static boolean loopDone;
+	
 	static CPU cpu;
 	static PPU ppu;
 	static Timer timer;
@@ -32,6 +34,8 @@ public class GB
 			tile = false;
 			map = false;
 			
+			loopDone = true;
+			
 			cpu = new CPU();
 			
 			cpu.initMMU();
@@ -46,12 +50,16 @@ public class GB
 				
 				if (cpu.run)
 				{
+					//ppu.scaleSet.setEnabled(false);
+					
 					ppu.sr.turnOnDisplay();
 					
 					cpu.memory[0xFF44].set(0x90);
 					
 					while (cpu.run)
 					{
+						loopDone = false;
+						
 						if (cpu.clockm % 1000 == 0 && GB.tile)
 						{
 							GB.ppu.updateTileWindow();
@@ -77,6 +85,8 @@ public class GB
 						}
 						
 						timer.clock(cpu.t);
+						
+						loopDone = true;
 					}
 				}
 			}
