@@ -33,7 +33,7 @@ public class PPU implements ActionListener
 	final static int w = 160;
 	final static int h = 144;
 	
-	final static int scale = 2;
+	static int scale;
 	
 	static ScanlineRenderer sr;
 	
@@ -60,6 +60,7 @@ public class PPU implements ActionListener
 	JMenuItem tile;
 	JMenuItem map;
 	JMenuItem pause;
+	JMenuItem scaleSet;
 	JMenuItem sleep;
 	
 	static JLabel tileItem;
@@ -77,6 +78,8 @@ public class PPU implements ActionListener
 	
 	public PPU()
 	{
+		scale = 5;
+		
 		init();
 	}
 	
@@ -95,6 +98,7 @@ public class PPU implements ActionListener
 		tile = new JMenuItem("Tile View");
 		map = new JMenuItem("Map View");
 		pause = new JMenuItem("Pause");
+		scaleSet = new JMenuItem("Set Scale");
 		sleep = new JMenuItem("Sleep Value");
 		file = new JMenu("File");
 		options = new JMenu("Options");
@@ -138,6 +142,10 @@ public class PPU implements ActionListener
 		
 		options.add(bios);
 		
+		options.addSeparator();
+		
+		options.add(scaleSet);
+		
 		bar.add(file);
 		bar.add(options);
 		bar.add(debug);
@@ -153,6 +161,7 @@ public class PPU implements ActionListener
 		tile.addActionListener(this);
 		map.addActionListener(this);
 		pause.addActionListener(this);
+		scaleSet.addActionListener(this);
 		sleep.addActionListener(this);
 		
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -216,6 +225,29 @@ public class PPU implements ActionListener
 		if (src == pause)
 		{
 			GB.cpu.run ^= true;
+		}
+		
+		if (src == scaleSet)
+		{
+			String input = JOptionPane.showInputDialog(frame, "What scale should the display be?", scale);
+			
+			int newScale = 0;
+			
+			if (input == null)
+			{
+				newScale = scale;
+			}
+			
+			else
+			{
+				newScale = Integer.parseInt(input);
+			}
+			
+			scale = newScale;
+			
+			frame.dispose();
+			
+			init();
 		}
 		
 		if (src == sleep)
@@ -442,10 +474,14 @@ public class PPU implements ActionListener
 		
 		int lx;
 		
+		int internalWLine;
+		
 		int gfx[];
 		
 		long frameStartTime;
 		long remainderTime;
+		
+		boolean incWLine;
 		
 		private ScanlineRenderer()
 		{
@@ -476,8 +512,12 @@ public class PPU implements ActionListener
 			
 			lx = 0;
 			
+			internalWLine = 0;
+			
 			frameStartTime = 0;
 			remainderTime = 0;
+			
+			incWLine = false;
 			
 			setMode(2);
 			
@@ -549,6 +589,18 @@ public class PPU implements ActionListener
 							
 							else if (ly.get() < 143)
 							{
+								if (stat.getBit(3) == 1)
+								{
+									GB.cpu.memory[CPU.IF].setBit(1, 1);
+								}
+								
+								if (incWLine)
+								{
+									internalWLine++;
+									
+									incWLine = false;
+								}
+								
 								setMode(2);
 							}
 							
@@ -575,6 +627,8 @@ public class PPU implements ActionListener
 							
 							ly.set(0);
 							writeLY();
+							
+							internalWLine = 0;
 							
 							currClocks = -1;
 							
@@ -643,21 +697,25 @@ public class PPU implements ActionListener
 			try
 			{
 				int possiblePixel = 0;
-				int bgOffset = (lx + scx.get()) + ((ly.get() + scy.get()) * (256));
 				
 				if (lcdc.getBit(0) == 1)
 				{
-					possiblePixel = BGMap.bgmap[bgOffset];
-					
-					if (lcdc.getBit(5) == 1 && lx >= wx.get() - 7 && ly.get() >= wy.get())
+					if (lcdc.getBit(5) == 1 && lx >= (wx.get() - 7) && ly.get() >= wy.get())
 					{
-						possiblePixel = WinMap.winmap[(lx - (wx.get() - 7)) + ((ly.get() - wy.get()) * 256)];
+						incWLine = true;
+						
+						possiblePixel = getWinPixel();
+					}
+					
+					else
+					{
+						possiblePixel = getBGPixel();
 					}
 				}
 				
 				else
 				{
-					possiblePixel = tileselector.BGP.trueColor(0);
+					possiblePixel = tileselector.BGP.color(0);
 				}
 				
 				gfx[lx + (ly.get() * w)] = possiblePixel;
@@ -670,6 +728,20 @@ public class PPU implements ActionListener
 				System.out.println("lx: " + lx + "\nly: " + ly.get() + "\nscx: " + scx.get() + "\nscy: " + scy.get());
 				System.exit(0);
 			}
+		}
+		
+		int getBGPixel()
+		{
+			int tile[] = tileselector.BGMapTileData(((lx + scx.get()) / 8) + (((ly.get() + scy.get()) / 8) * 32));
+			
+			return tileselector.BGP.color(tile[(((lx + scx.get()) % 8) + (((ly.get() + scy.get()) % 8) * 8))]);
+		}
+		
+		int getWinPixel()
+		{
+			int tile[] = tileselector.WinMapTileData((((lx - (wx.get() - 7))) / 8) + ((internalWLine / 8) * 32));
+			
+			return tileselector.BGP.color(tile[(((lx - (wx.get() - 7)) % 8) + (((internalWLine % 8) * 8)))]);
 		}
 		
 		void turnOffDisplay()
@@ -727,7 +799,7 @@ public class PPU implements ActionListener
 	
 	
 	
-	static abstract class TileMap
+	private static abstract class TileMap
 	{
 		static int tilemap[] = new int[16 * 8 * 24 * 8];
 		
@@ -755,7 +827,7 @@ public class PPU implements ActionListener
 		}
 	}
 	
-	static abstract class BGMap
+	private static abstract class BGMap
 	{
 		static int bgmap[] = new int[256 * 256];
 		
@@ -791,7 +863,7 @@ public class PPU implements ActionListener
 		}
 	}
 	
-	static abstract class WinMap
+	private static abstract class WinMap
 	{
 		static int winmap[] = new int[256 * 256];
 		
@@ -805,17 +877,7 @@ public class PPU implements ActionListener
 					{
 						for (int x = 0; x < 32; x++)
 						{
-							int mapOffset;
-							
-							if (sr.lcdc.getBit(6) == 0)
-							{
-								mapOffset = TileSelector.MAP1;
-							}
-							
-							else
-							{
-								mapOffset = TileSelector.MAP2;
-							}
+							int mapOffset = tileselector.getWinMapOffset();
 							
 							PixelOps.drawBGTile(GB.cpu.memory[mapOffset + (x + (y * 32))].get(), ((x * 8) + ((y * 8) * 256)), bgmDisplay.getWidth() / scale, winmap);
 						}
@@ -948,7 +1010,7 @@ public class PPU implements ActionListener
 			{
 				tiles[i] = new Tile();
 				
-				tiles[i].setIndex(Tile.VRAM + (i * 0x10));
+				tiles[i].setIndex(Tile.VRAM + (i * Tile.LEN));
 			}
 		}
 	}
@@ -991,6 +1053,16 @@ public class PPU implements ActionListener
 			OBP2.updatePalette();
 		}
 		
+		int[] BGMapTileData(int indexNo)
+		{
+			return BGTileData(GB.cpu.memory[getBGMapOffset() + indexNo].get());
+		}
+		
+		int[] WinMapTileData(int indexNo)
+		{
+			return BGTileData(GB.cpu.memory[getWinMapOffset() + indexNo].get());
+		}
+		
 		int[] BGTileData(int tileNo)
 		{
 			updatePalettes();
@@ -1000,7 +1072,7 @@ public class PPU implements ActionListener
 			if (sr.lcdc.getBit(4) == 0)
 			{
 				tileNo = (byte) tileNo;
-				tileOffset = 128;
+				tileOffset = 256;
 			}
 			
 			int index = tileset.tiles[tileOffset + tileNo].index;
@@ -1034,6 +1106,40 @@ public class PPU implements ActionListener
 			}
 			
 			return tileData;
+		}
+		
+		int getBGMapOffset()
+		{
+			int mapOffset = 0;
+			
+			if (sr.lcdc.getBit(3) == 0)
+			{
+				mapOffset = TileSelector.MAP1;
+			}
+			
+			else
+			{
+				mapOffset = TileSelector.MAP2;
+			}
+			
+			return mapOffset;
+		}
+		
+		int getWinMapOffset()
+		{
+			int mapOffset = 0;
+			
+			if (sr.lcdc.getBit(6) == 0)
+			{
+				mapOffset = TileSelector.MAP1;
+			}
+			
+			else
+			{
+				mapOffset = TileSelector.MAP2;
+			}
+			
+			return mapOffset;
 		}
 	}
 	
