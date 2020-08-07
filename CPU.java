@@ -180,8 +180,14 @@ public class CPU
 			debugging += String.format("rp DE: 0x%04X\n", rp(DE).get());
 			debugging += String.format("rp HL: 0x%04X\n", rp(HL).get());
 			debugging += String.format("\nopcode: 0x%04X\n", opcode.get());
-			debugging += String.format("\npc: 0x%04X\n", pc.get());
-			debugging += String.format("\nsp: 0x%04X\n", sp.get());
+			debugging += String.format("pc: 0x%04X\n", pc.get());
+			debugging += String.format("sp: 0x%04X\n", sp.get());
+			debugging += String.format("\nime: %b\n", ime);
+			debugging += String.format("IE: %02X\n", mmu.read(CPU.IE).get());
+			debugging += String.format("IF: %02X\n", mmu.read(CPU.IF).get());
+			debugging += String.format("\ntempkeys: %02X\n", GB.joypad.tempkeys.get());
+			debugging += String.format("keys: %02X\n", GB.joypad.keys.get());
+			debugging += String.format("mem keys: %02X\n", mmu.read(0xFF00).get());
 			
 			GB.ppu.debugText.setText(debugging);
 		}

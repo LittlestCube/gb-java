@@ -19,42 +19,41 @@ public class GB
 	static CPU cpu;
 	static PPU ppu;
 	static Timer timer;
+	static Joypad joypad;
 	
 	static int millisleeps;
 	
 	public static void main(String args[]) throws InterruptedException
 	{
+		millisleeps = 0;
+		
+		useBIOS = false;
+		debug = false;
+		ram = false;
+		tile = false;
+		map = false;
+		
+		loopDone = true;
+		
+		cpu = new CPU();
+		
+		cpu.initMMU();
+		
+		timer = new Timer();
+		
+		joypad = new Joypad();
+		
+		ppu = new PPU();
+		
 		try
 		{
-			millisleeps = 0;
-			
-			useBIOS = false;
-			debug = false;
-			ram = false;
-			tile = false;
-			map = false;
-			
-			loopDone = true;
-			
-			cpu = new CPU();
-			
-			cpu.initMMU();
-			
-			timer = new Timer();
-			
-			ppu = new PPU();
-			
 			while (true)
 			{
 				Thread.sleep(0);
 				
 				if (cpu.run)
 				{
-					//ppu.scaleSet.setEnabled(false);
-					
 					ppu.sr.turnOnDisplay();
-					
-					cpu.memory[0xFF44].set(0x90);
 					
 					while (cpu.run)
 					{
@@ -85,6 +84,8 @@ public class GB
 						}
 						
 						timer.clock(cpu.t);
+						
+						joypad.status();
 						
 						loopDone = true;
 					}

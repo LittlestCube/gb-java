@@ -19,6 +19,8 @@ import javax.swing.KeyStroke;
 import javax.swing.filechooser.*;
 
 import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.Image;
 
 import java.awt.event.ActionListener;
 import java.awt.event.WindowAdapter;
@@ -78,7 +80,7 @@ public class PPU implements ActionListener
 	
 	public PPU()
 	{
-		scale = 5;
+		scale = 4;
 		
 		init();
 	}
@@ -112,12 +114,11 @@ public class PPU implements ActionListener
 		map.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_M, ActionEvent.CTRL_MASK));
 		pause.setAccelerator(KeyStroke.getKeyStroke(KeyEvent.VK_P, ActionEvent.CTRL_MASK));
 		
-		resetMainDisplay();
+		mainDisplay = new BufferedImage(w * scale, h * scale, BufferedImage.TYPE_INT_RGB);
+		
+		tileDisplay = new BufferedImage(16 * 8 * scale, 24 * 8 * scale, BufferedImage.TYPE_INT_RGB);
 		
 		bgmDisplay = new BufferedImage(256 * scale, 256 * scale, BufferedImage.TYPE_INT_RGB);
-		
-		bgmItem = new JLabel(new ImageIcon(bgmDisplay));
-		bgmFrame.add(bgmItem);
 		
 		tileselector = new TileSelector();
 		
@@ -163,7 +164,10 @@ public class PPU implements ActionListener
 		
 		frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
 		
-		frame.pack();
+		resetDisplays();
+		
+		frame.addKeyListener(GB.joypad);
+		
 		frame.setResizable(false);
 		frame.setVisible(true);
 	}
@@ -242,9 +246,7 @@ public class PPU implements ActionListener
 			
 			scale = newScale;
 			
-			resetMainDisplay();
-			
-			frame.pack();
+			resetDisplays();
 		}
 		
 		if (src == sleep)
@@ -267,14 +269,28 @@ public class PPU implements ActionListener
 		}
 	}
 	
-	void resetMainDisplay()
+	void resetDisplays()
 	{
 		frame.getContentPane().removeAll();
+		tileFrame.getContentPane().removeAll();
+		bgmFrame.getContentPane().removeAll();
 		
-		mainDisplay = new BufferedImage(w * scale, h * scale, BufferedImage.TYPE_INT_RGB);
+		mainDisplay = PixelOps.resize(mainDisplay, w * scale, h * scale);
+		tileDisplay = PixelOps.resize(tileDisplay, 16 * 8 * scale, 24 * 8 * scale);
+		bgmDisplay = PixelOps.resize(bgmDisplay, 256 * scale, 256 * scale);
 		
 		JLabel item = new JLabel(new ImageIcon(mainDisplay));
 		frame.add(item);
+		
+		item = new JLabel(new ImageIcon(tileDisplay));
+		tileFrame.add(item);
+		
+		item = new JLabel(new ImageIcon(bgmDisplay));
+		bgmFrame.add(item);
+		
+		frame.pack();
+		tileFrame.pack();
+		bgmFrame.pack();
 	}
 	
 	void updateMainFrame()
@@ -476,8 +492,8 @@ public class PPU implements ActionListener
 		UnsignedByte wy;
 		
 		int clocks;
-		
 		int currClocks;
+		int waitClocks;
 		
 		int lx;
 		
@@ -528,7 +544,9 @@ public class PPU implements ActionListener
 			
 			setMode(2);
 			
+			clocks = 0;
 			currClocks = -1;
+			waitClocks = 0;
 			
 			GB.cpu.mmu.lockRange(0xFE00, 0xFE9F);
 		}
@@ -581,120 +599,148 @@ public class PPU implements ActionListener
 				currClocks++;
 				clocks--;
 				
-				switch (getMode())
+				if (waitClocks == 0)
 				{
-					case 0:
+					switch (getMode())
 					{
-						if (currClocks % 456 == 0)
+						case 0:
 						{
-							if (ly.get() >= 143)
+							if (currClocks % 456 == 0)
 							{
-								GB.cpu.memory[CPU.IF].setBit(0, 1);
+								if (ly.get() >= 143)
+								{
+									GB.cpu.memory[CPU.IF].setBit(0, 1);
+									
+									setMode(1);
+								}
 								
-								setMode(1);
-							}
-							
-							else if (ly.get() < 143)
-							{
+								else if (ly.get() < 143)
+								{
+									if (stat.getBit(3) == 1)
+									{
+										GB.cpu.memory[CPU.IF].setBit(1, 1);
+									}
+									
+									if (incWLine)
+									{
+										internalWLine++;
+										
+										incWLine = false;
+									}
+									
+									setMode(2);
+								}
+								
 								if (stat.getBit(3) == 1)
 								{
 									GB.cpu.memory[CPU.IF].setBit(1, 1);
 								}
 								
-								if (incWLine)
+								if (scx.get() % 8 == 0)
 								{
-									internalWLine++;
 									
-									incWLine = false;
 								}
+								
+								else if (scx.get() % 8 > 1 && scx.get() % 8 < 4)
+								{
+									waitClocks += 1;
+								}
+								
+								else if (scx.get() % 8 > 5 && scx.get() % 8 < 7)
+								{
+									waitClocks += 2;
+								}
+								
+								ly.add(1);
+								writeLY();
+							}
+							
+							break;
+						}
+						
+						case 1:
+						{
+							if (currClocks % 456 == 0 && currClocks != 70224)
+							{
+								ly.add(1);
+								writeLY();
+							}
+							
+							else if (currClocks == 70224)
+							{
+								PixelOps.setDisplay(mainDisplay, gfx);
+								
+								updateMainFrame();
+								
+								ly.set(0);
+								writeLY();
+								
+								internalWLine = 0;
+								
+								currClocks = -1;
 								
 								setMode(2);
-							}
-							
-							ly.add(1);
-							writeLY();
-						}
-						
-						break;
-					}
-					
-					case 1:
-					{
-						if (currClocks % 456 == 0 && currClocks != 70224)
-						{
-							ly.add(1);
-							writeLY();
-						}
-						
-						else if (currClocks == 70224)
-						{
-							PixelOps.setDisplay(mainDisplay, gfx);
-							
-							updateMainFrame();
-							
-							ly.set(0);
-							writeLY();
-							
-							internalWLine = 0;
-							
-							currClocks = -1;
-							
-							setMode(2);
-							
-							try
-							{
-								if ((remainderTime = System.currentTimeMillis() - frameStartTime) < frameLength)
+								
+								try
 								{
-									Thread.sleep(frameLength - remainderTime);
+									if ((remainderTime = System.currentTimeMillis() - frameStartTime) < frameLength)
+									{
+										Thread.sleep(frameLength - remainderTime);
+									}
+									
+									frameStartTime = System.currentTimeMillis();
 								}
 								
-								frameStartTime = System.currentTimeMillis();
+								catch (Exception e)
+								{
+									e.printStackTrace();
+								}
 							}
 							
-							catch (Exception e)
+							break;
+						}
+						
+						case 2:
+						{
+							// TODO: add OAM search stuffs
+							
+							if (currClocks % 456 == 80)
 							{
-								e.printStackTrace();
+								setMode(3);
 							}
-						}
-						
-						break;
-					}
-					
-					case 2:
-					{
-						// TODO: add OAM search stuffs
-						
-						if (currClocks % 456 == 80)
-						{
-							setMode(3);
 							
-							GB.cpu.mmu.unlockRange(0x8000, 0x9FFF);		// mode 0 unlocks VRAM
-							GB.cpu.mmu.unlockRange(0xFE00, 0xFE9F);		// and OAM
-						}
-						
-						else if (currClocks % 456 > 80)
-						{
-							System.out.println("currClocks % 456 > 80");
-						}
-						
-						break;
-					}
-					
-					case 3:
-					{
-						nextPixel();
-						
-						lx++;
-						
-						if (lx == 160)
-						{
-							setMode(0);
+							else if (currClocks % 456 > 80)
+							{
+								System.out.println("currClocks % 456 > 80");
+							}
 							
-							lx = 0;
+							break;
 						}
 						
-						break;
+						case 3:
+						{
+							nextPixel();
+							
+							lx++;
+							
+							if (lx == 160)
+							{
+								setMode(0);
+								
+								lx = 0;
+								
+								GB.cpu.mmu.unlockRange(0x8000, 0x9FFF);		// mode 0 unlocks VRAM
+								GB.cpu.mmu.unlockRange(0xFE00, 0xFE9F);		// and OAM
+							}
+							
+							break;
+						}
 					}
+				}
+				
+				else if (waitClocks > 0)
+				{
+					waitClocks--;
 				}
 			}
 		}
@@ -709,6 +755,11 @@ public class PPU implements ActionListener
 				{
 					if (lcdc.getBit(5) == 1 && lx >= (wx.get() - 7) && ly.get() >= wy.get())
 					{
+						if (!incWLine)
+						{
+							waitClocks += 6;
+						}
+						
 						incWLine = true;
 						
 						possiblePixel = getWinPixel();
@@ -1191,5 +1242,19 @@ public class PPU implements ActionListener
 				}
 			}
 		}
+		
+		
+		
+		public static BufferedImage resize(BufferedImage img, int newWidth, int newHeight)
+		{
+			Image tmp = img.getScaledInstance(newWidth, newHeight, Image.SCALE_SMOOTH);
+			BufferedImage dimg = new BufferedImage(newWidth, newHeight, BufferedImage.TYPE_INT_ARGB);
+			
+			Graphics2D g2d = dimg.createGraphics();
+			g2d.drawImage(tmp, 0, 0, null);
+			g2d.dispose();
+			
+			return dimg;
+		} 
 	}
 }

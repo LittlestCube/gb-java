@@ -108,6 +108,13 @@ public class MMU
 		
 		switch (offset)
 		{
+			case 0xFF00:
+			{
+				value.setBit(7, 1);
+				value.setBit(6, 1);
+				break;
+			}
+			
 			case 0xFF02:
 			{
 				value.setBit(1, 1);
@@ -145,6 +152,13 @@ public class MMU
 		
 		switch (offset)
 		{
+			case 0xFF00:
+			{
+				GB.joypad.status();
+				
+				break;
+			}
+			
 			case 0xFF04:
 			{
 				value = 0;
