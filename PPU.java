@@ -124,8 +124,6 @@ public class PPU implements ActionListener
 		
 		sr = new ScanlineRenderer();
 		
-		sr.turnOffDisplay();
-		
 		file.add(open);
 		
 		debug.add(debugItem);
@@ -475,6 +473,8 @@ public class PPU implements ActionListener
 	{
 		final int frameLength = 15;
 		
+		boolean lcdOn;
+		
 		UnsignedByte lcdc;
 		
 		UnsignedByte stat;
@@ -494,6 +494,8 @@ public class PPU implements ActionListener
 		int clocks;
 		int currClocks;
 		int waitClocks;
+		
+		int lastMode;
 		
 		int lx;
 		
@@ -515,6 +517,8 @@ public class PPU implements ActionListener
 		
 		void init()
 		{
+			lcdOn = false;
+			
 			lcdc = new UnsignedByte();
 			
 			stat = new UnsignedByte();
@@ -542,7 +546,11 @@ public class PPU implements ActionListener
 			
 			incWLine = false;
 			
-			setMode(2);
+			lastMode = 0;
+			
+			setMode(0);
+			
+			fillDisplay(Palette.OFF);
 			
 			clocks = 0;
 			currClocks = -1;
@@ -590,9 +598,27 @@ public class PPU implements ActionListener
 		
 		void clock(int newClocks)
 		{
-			clocks += newClocks;
-			
 			getRegisters();
+			
+			if (lcdc.getBit(7) == 1)
+			{
+				if (!lcdOn)
+				{
+					//turnOnDisplay();
+				}
+			}
+			
+			else if (lcdc.getBit(7) == 0)
+			{
+				if (lcdOn)
+				{
+					//turnOffDisplay();
+				}
+				
+				//return;
+			}
+			
+			clocks += newClocks;
 			
 			while (clocks > 0)
 			{
@@ -605,9 +631,17 @@ public class PPU implements ActionListener
 					{
 						case 0:
 						{
+							if (lastMode == 3)
+							{
+								//GB.cpu.mmu.unlockRange(0x8000, 0x9FFF);		// mode 0 unlocks VRAM
+								//GB.cpu.mmu.unlockRange(0xFE00, 0xFE9F);		// and OAM
+							}
+							
+							lastMode = 0;
+							
 							if (currClocks % 456 == 0)
 							{
-								if (ly.get() >= 143)
+								if (ly.get() > 143)
 								{
 									GB.cpu.memory[CPU.IF].setBit(0, 1);
 									
@@ -616,11 +650,6 @@ public class PPU implements ActionListener
 								
 								else if (ly.get() < 143)
 								{
-									if (stat.getBit(3) == 1)
-									{
-										GB.cpu.memory[CPU.IF].setBit(1, 1);
-									}
-									
 									if (incWLine)
 									{
 										internalWLine++;
@@ -631,11 +660,6 @@ public class PPU implements ActionListener
 									setMode(2);
 								}
 								
-								if (stat.getBit(3) == 1)
-								{
-									GB.cpu.memory[CPU.IF].setBit(1, 1);
-								}
-								
 								if (scx.get() % 8 == 0)
 								{
 									
@@ -643,12 +667,12 @@ public class PPU implements ActionListener
 								
 								else if (scx.get() % 8 > 1 && scx.get() % 8 < 4)
 								{
-									waitClocks += 1;
+									//waitClocks += 1;
 								}
 								
 								else if (scx.get() % 8 > 5 && scx.get() % 8 < 7)
 								{
-									waitClocks += 2;
+									//waitClocks += 2;
 								}
 								
 								ly.add(1);
@@ -704,6 +728,18 @@ public class PPU implements ActionListener
 						{
 							// TODO: add OAM search stuffs
 							
+							if (lastMode == 0)
+							{
+								//GB.cpu.mmu.lockRange(0xFE00, 0xFE9F);
+								
+								if (stat.getBit(5) == 1)
+								{
+									GB.cpu.memory[CPU.IF].setBit(1, 1);
+								}
+							}
+							
+							lastMode = 2;
+							
 							if (currClocks % 456 == 80)
 							{
 								setMode(3);
@@ -719,6 +755,13 @@ public class PPU implements ActionListener
 						
 						case 3:
 						{
+							if (lastMode == 2)
+							{
+								//GB.cpu.mmu.lockRange(0x8000, 0x9FFF);
+							}
+							
+							lastMode = 3;
+							
 							nextPixel();
 							
 							lx++;
@@ -728,9 +771,6 @@ public class PPU implements ActionListener
 								setMode(0);
 								
 								lx = 0;
-								
-								GB.cpu.mmu.unlockRange(0x8000, 0x9FFF);		// mode 0 unlocks VRAM
-								GB.cpu.mmu.unlockRange(0xFE00, 0xFE9F);		// and OAM
 							}
 							
 							break;
@@ -757,7 +797,7 @@ public class PPU implements ActionListener
 					{
 						if (!incWLine)
 						{
-							waitClocks += 6;
+							//waitClocks += 6;
 						}
 						
 						incWLine = true;
@@ -804,7 +844,7 @@ public class PPU implements ActionListener
 		
 		void turnOffDisplay()
 		{
-			fillDisplay(Palette.OFF);
+			init();
 		}
 		
 		void turnOnDisplay()
@@ -813,11 +853,7 @@ public class PPU implements ActionListener
 			
 			setMode(2);
 			
-			getRegisters();
-			
-			lx = 0;
-			
-			ly.set(0);
+			lcdOn = true;
 		}
 		
 		void fillDisplay(int gbcolor)
@@ -847,7 +883,7 @@ public class PPU implements ActionListener
 			{
 				if (stat.getBit(i + 3) == 1 && getMode() == i)
 				{
-					GB.cpu.memory[CPU.IF].setBit(1, 1);
+					//GB.cpu.memory[CPU.IF].setBit(1, 1);
 				}
 			}
 			
@@ -865,23 +901,15 @@ public class PPU implements ActionListener
 		
 		static void updateDisplay()
 		{
-			Thread thread = new Thread()
-			{
-				public void run()
-				{
-					int gfx[] = new int[16 * 8 * 24 * 8];
-					
-					for (int y = 0; y < 24; y++)
-					{
-						for (int x = 0; x < 16; x++)
-						{
-							PixelOps.drawBGTile((x + (y * 16)), ((x * 8) + ((y * 8) * 128)), display.getWidth() / scale, tilemap);
-						}
-					}
-				}
-			};
+			int gfx[] = new int[16 * 8 * 24 * 8];
 			
-			thread.start();
+			for (int y = 0; y < 24; y++)
+			{
+				for (int x = 0; x < 16; x++)
+				{
+					PixelOps.drawBGTile((x + (y * 16)), ((x * 8) + ((y * 8) * 128)), display.getWidth() / scale, tilemap);
+				}
+			}
 		}
 	}
 	
@@ -891,33 +919,25 @@ public class PPU implements ActionListener
 		
 		static void updateDisplay()
 		{
-			Thread thread = new Thread()
+			for (int y = 0; y < 32; y++)
 			{
-				public void run()
+				for (int x = 0; x < 32; x++)
 				{
-					for (int y = 0; y < 32; y++)
+					int mapOffset;
+					
+					if (sr.lcdc.getBit(3) == 0)
 					{
-						for (int x = 0; x < 32; x++)
-						{
-							int mapOffset;
-							
-							if (sr.lcdc.getBit(3) == 0)
-							{
-								mapOffset = TileSelector.MAP1;
-							}
-							
-							else
-							{
-								mapOffset = TileSelector.MAP2;
-							}
-							
-							PixelOps.drawBGTile(GB.cpu.memory[mapOffset + (x + (y * 32))].get(), ((x * 8) + ((y * 8) * 256)), bgmDisplay.getWidth() / scale, bgmap);
-						}
+						mapOffset = TileSelector.MAP1;
 					}
+					
+					else
+					{
+						mapOffset = TileSelector.MAP2;
+					}
+					
+					PixelOps.drawBGTile(GB.cpu.memory[mapOffset + (x + (y * 32))].get(), ((x * 8) + ((y * 8) * 256)), bgmDisplay.getWidth() / scale, bgmap);
 				}
-			};
-			
-			thread.start();
+			}
 		}
 	}
 	
@@ -927,23 +947,15 @@ public class PPU implements ActionListener
 		
 		static void updateDisplay()
 		{
-			Thread thread = new Thread()
+			for (int y = 0; y < 32; y++)
 			{
-				public void run()
+				for (int x = 0; x < 32; x++)
 				{
-					for (int y = 0; y < 32; y++)
-					{
-						for (int x = 0; x < 32; x++)
-						{
-							int mapOffset = tileselector.getWinMapOffset();
-							
-							PixelOps.drawBGTile(GB.cpu.memory[mapOffset + (x + (y * 32))].get(), ((x * 8) + ((y * 8) * 256)), bgmDisplay.getWidth() / scale, winmap);
-						}
-					}
+					int mapOffset = tileselector.getWinMapOffset();
+					
+					PixelOps.drawBGTile(GB.cpu.memory[mapOffset + (x + (y * 32))].get(), ((x * 8) + ((y * 8) * 256)), bgmDisplay.getWidth() / scale, winmap);
 				}
-			};
-			
-			thread.start();
+			}
 		}
 	}
 	
@@ -991,7 +1003,7 @@ public class PPU implements ActionListener
 		
 		void updatePalette()
 		{
-			palRegister.set(GB.cpu.mmu.read(palIndex));
+			palRegister.set(GB.cpu.memory[palIndex]);
 		}
 		
 		int color(int color)
@@ -1047,6 +1059,14 @@ public class PPU implements ActionListener
 		{
 			index = newIndex;
 		}
+	}
+	
+	private class Sprite
+	{
+		UnsignedByte y;
+		UnsignedByte x;
+		
+		UnsignedByte tile;
 	}
 	
 	private class TileSet

@@ -140,6 +140,11 @@ public class MMU
 	
 	void writeEffects(int offset, int value)
 	{
+		if (offset >= 0x0000 && offset < 0x8000)
+		{
+			value = GB.cpu.memory[offset].get();
+		}
+		
 		if (offset >= 0x8000 && offset < 0x9800 && GB.tile)
 		{
 			GB.ppu.updateTileWindow();
@@ -154,7 +159,7 @@ public class MMU
 		{
 			case 0xFF00:
 			{
-				GB.joypad.status();
+				//GB.joypad.status();
 				
 				break;
 			}
@@ -233,11 +238,14 @@ public class MMU
 	{
 		boolean locked = false;
 		
-		for (int i = 0; (i < lockedRanges.size() / 2) && (!locked); i++)
+		if (lockedRanges.size() > 0)
 		{
-			if ((offset >= lockedRanges.get(i * 2)) && (offset <= lockedRanges.get((i * 2) + 1)))
+			for (int i = 0; (i < lockedRanges.size() / 2) && (!locked); i++)
 			{
-				locked = true;
+				if ((offset >= lockedRanges.get(i * 2)) && (offset <= lockedRanges.get((i * 2) + 1)))
+				{
+					locked = true;
+				}
 			}
 		}
 		
@@ -265,6 +273,8 @@ public class MMU
 			{
 				lockedRanges.remove(i * 2);
 				lockedRanges.remove(i * 2);								// the second item gets bumped backwards, so we call the same index
+				
+				exists = true;
 			}
 		}
 	}
@@ -279,6 +289,8 @@ public class MMU
 			{
 				lockedRanges.remove(i * 2);
 				lockedRanges.remove(i * 2);
+				
+				exists = false;
 			}
 		}
 	}
